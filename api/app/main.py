@@ -38,13 +38,18 @@ SITE_NAME = "45 The Esplanade"
 
 app = FastAPI(title="INNSIGHT API", version=MODEL_VERSION)
 
+_default_origins = (
+    "http://localhost:3000,http://localhost:3001,"
+    "http://127.0.0.1:3000,http://127.0.0.1:3001"
+)
 app.add_middleware(
     CORSMiddleware,
+    # Deployed frontends join via ALLOWED_ORIGINS (comma-separated, no
+    # trailing slashes), e.g. the Vercel URL on Render.
     allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
+        o.strip()
+        for o in os.environ.get("ALLOWED_ORIGINS", _default_origins).split(",")
+        if o.strip()
     ],
     allow_credentials=True,
     allow_methods=["*"],
