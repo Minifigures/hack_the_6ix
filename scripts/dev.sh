@@ -7,7 +7,7 @@ fuser -k 8000/tcp 2>/dev/null || true
 fuser -k 3000/tcp 2>/dev/null || true
 sleep 1
 
-"$ROOT/.venv/bin/uvicorn" app.main:app --app-dir "$ROOT/api" --port 8000 &
+"$ROOT/.venv/bin/uvicorn" main:app --app-dir "$ROOT/api" --port 8000 &
 # WATCHPACK_POLLING is required on WSL /mnt/c; inotify misses file changes there.
 (cd "$ROOT/web" && WATCHPACK_POLLING=true npm run dev) &
 

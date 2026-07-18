@@ -1,0 +1,9 @@
+{
+  "include": ["**/*.py"],
+  "exclude": ["venv/**", "**/__pycache__/**"],
+  "extraPaths": [".", "../model"],
+  "venvPath": "..",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic"
+}

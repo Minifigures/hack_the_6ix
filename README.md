@@ -17,7 +17,7 @@ Built at Hack the 6ix 2026.
 ```bash
 # api (from repo root)
 python3.11 -m venv .venv && .venv/bin/pip install -r api/requirements.txt
-.venv/bin/uvicorn app.main:app --app-dir api --port 8000
+.venv/bin/uvicorn main:app --app-dir api --port 8000
 
 # web
 cd web && npm install && npm run dev

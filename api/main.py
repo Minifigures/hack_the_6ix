@@ -6,8 +6,16 @@ from dotenv import load_dotenv
 
 # Load env before any app modules read os.environ.
 # Repo-root first, then api/.env so local API secrets win.
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
+_API_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _API_DIR.parent
+load_dotenv(_REPO_ROOT / ".env")
+load_dotenv(_API_DIR / ".env", override=True)
+
+# Make `import app...` reliable when cwd is not api/.
+import sys
+
+if str(_API_DIR) not in sys.path:
+    sys.path.insert(0, str(_API_DIR))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
