@@ -16,7 +16,6 @@ __pycache__/
 # env (template stays committable)
 .env
 .env.*
-!.env.example
 
 # internal docs, never public
 PRD*.md
