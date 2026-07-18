@@ -10,14 +10,20 @@ from typing import Any, Callable
 from innsight_model.memo import build_year_memo, generate_narrative
 from innsight_model.sim import BuildingConfig, Comparison, SCENARIOS, compare
 
-from app.agents.gather import gather_all
+from app.agents.climate import fetch_location_scenarios
+from app.agents.gather import DEFAULT_SITE_LAT, DEFAULT_SITE_LNG, gather_all
 from app.agents.llm import LLMProvider, get_provider, truncate_matrix_for_llm
 from app.agents.matrix import (
     BASELINE_SCENARIO,
     YEAR_SCENARIO_KEYS,
     build_matrix_summary,
 )
-from app.agents.schemas import AgentBrief, BossSynthesis, BriefingResponse, YearBriefingResponse
+from app.agents.schemas import (
+    AgentBrief,
+    BossSynthesis,
+    BriefingResponse,
+    YearBriefingResponse,
+)
 from app.agents.specialists.boss import synthesize_boss, synthesize_year_boss
 from app.agents.specialists.compliance import analyze_compliance
 from app.agents.specialists.environment import analyze_environment
@@ -94,11 +100,12 @@ def _run_specialists(
 def _parallel_compares(
     config_a: BuildingConfig,
     config_b: BuildingConfig,
+    scenarios: dict[str, Any],
 ) -> dict[str, Comparison]:
-    keys = [k for k in YEAR_SCENARIO_KEYS if k in SCENARIOS]
+    keys = [k for k in YEAR_SCENARIO_KEYS if k in scenarios]
 
     def _one(key: str) -> tuple[str, Comparison]:
-        return key, compare(config_a, config_b, SCENARIOS[key])
+        return key, compare(config_a, config_b, scenarios[key])
 
     out: dict[str, Comparison] = {}
     with ThreadPoolExecutor(max_workers=max(1, len(keys))) as pool:
@@ -118,22 +125,31 @@ async def run_briefing(
     hvac_b: str = "heat_pump",
     include_agents: list[str] | None = None,
     provider: LLMProvider | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
 ) -> BriefingResponse:
     if scenario not in SCENARIOS:
         raise ValueError(f"unknown scenario: {scenario}")
 
+    site_lat = DEFAULT_SITE_LAT if lat is None else lat
+    site_lng = DEFAULT_SITE_LNG if lng is None else lng
+    location_scenarios, climate_meta = await fetch_location_scenarios(
+        site_lat, site_lng
+    )
+    stress = location_scenarios.get(scenario) or SCENARIOS[scenario]
+
     config_a, config_b = _build_configs(
         building_type, rooms, structure_a, hvac_a, structure_b, hvac_b
     )
-    comparison = compare(config_a, config_b, SCENARIOS[scenario])
-    ctx = await gather_all(comparison)
+    comparison = compare(config_a, config_b, stress)
+    ctx = await gather_all(
+        comparison, lat=site_lat, lng=site_lng, climate=climate_meta
+    )
 
     llm, fallback_reason = (provider, None) if provider is not None else get_provider()
     include = include_agents or ALL_AGENT_IDS
     briefs = _run_specialists(llm, ctx, include)
-    synthesis: BossSynthesis = synthesize_boss(
-        llm, ctx["comparison"], briefs
-    )
+    synthesis: BossSynthesis = synthesize_boss(llm, ctx["comparison"], briefs)
 
     return BriefingResponse(
         comparison=_serialize_comparison(comparison),
@@ -155,29 +171,46 @@ async def run_year_briefing(
     include_agents: list[str] | None = None,
     provider: LLMProvider | None = None,
     site_name: str = "45 The Esplanade, Toronto",
+    lat: float | None = None,
+    lng: float | None = None,
 ) -> YearBriefingResponse:
     """Run all year scenarios in parallel; one gather; ~8 Gemini calls total."""
+    site_lat = DEFAULT_SITE_LAT if lat is None else lat
+    site_lng = DEFAULT_SITE_LNG if lng is None else lng
+
     config_a, config_b = _build_configs(
         building_type, rooms, structure_a, hvac_a, structure_b, hvac_b
     )
-    comparisons = _parallel_compares(config_a, config_b)
+    location_scenarios, climate_meta = await fetch_location_scenarios(
+        site_lat, site_lng
+    )
+    comparisons = _parallel_compares(config_a, config_b, location_scenarios)
     if BASELINE_SCENARIO not in comparisons:
         raise ValueError(f"missing baseline scenario {BASELINE_SCENARIO}")
 
     primary = comparisons[BASELINE_SCENARIO]
     matrix_summary = build_matrix_summary(comparisons)
-    ctx = await gather_all(primary)
+    ctx = await gather_all(
+        primary, lat=site_lat, lng=site_lng, climate=climate_meta
+    )
     ctx["matrix_summary"] = truncate_matrix_for_llm(matrix_summary)
     ctx["year_pack"] = True
+    ctx["climate"] = climate_meta
 
     llm, fallback_reason = (provider, None) if provider is not None else get_provider()
     include = include_agents or ALL_AGENT_IDS
     briefs = _run_specialists(llm, ctx, include)
     synthesis = synthesize_year_boss(llm, matrix_summary, briefs, ctx["comparison"])
 
-    # Portfolio memo: one narrative over the matrix (not 5 memos).
     memo_body = build_year_memo(comparisons, site_name, matrix_summary)
-    # Skip Gemini narrative when probe already failed or provider is fallback.
+    memo_body.setdefault("environmental_summary", {})
+    memo_body["environmental_summary"]["climate"] = climate_meta
+    memo_body["environmental_summary"]["site"] = {
+        "name": site_name,
+        "lat": site_lat,
+        "lng": site_lng,
+    }
+
     api_key = None
     if llm.name != "deterministic-fallback" and not fallback_reason:
         api_key = (os.environ.get("GEMINI_API_KEY") or "").strip() or None
@@ -188,7 +221,8 @@ async def run_year_briefing(
     memo_body["narrative"] = narrative
 
     scenarios_payload = {
-        key: _serialize_comparison(comparisons[key]) for key in YEAR_SCENARIO_KEYS
+        key: _serialize_comparison(comparisons[key])
+        for key in YEAR_SCENARIO_KEYS
         if key in comparisons
     }
 
@@ -201,4 +235,5 @@ async def run_year_briefing(
         generator=llm.name,
         fallback_reason=fallback_reason,
         comparison=_serialize_comparison(primary),
+        climate=climate_meta,
     )

@@ -137,6 +137,8 @@ export interface Memo {
     worst_peak_scenario?: string;
     coldest_hp_stress_scenario?: string;
     note?: string;
+    climate?: ClimateMeta;
+    site?: { name?: string; lat?: number; lng?: number };
   };
   matrix_summary?: {
     flip_scenarios?: string[];
@@ -218,6 +220,17 @@ export interface MatrixSummary {
   baseline_recommended: OptionKey;
 }
 
+export interface ClimateMeta {
+  source: string;
+  provider?: string;
+  note?: string;
+  url?: string | null;
+  archive_year?: number | null;
+  lat?: number | null;
+  lng?: number | null;
+  peaks_c?: Record<string, number>;
+}
+
 export interface YearBriefing {
   scenarios: Record<string, Comparison>;
   matrix_summary: MatrixSummary;
@@ -227,4 +240,5 @@ export interface YearBriefing {
   generator: string;
   fallback_reason?: string | null;
   comparison: Comparison;
+  climate?: ClimateMeta | null;
 }

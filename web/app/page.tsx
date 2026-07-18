@@ -46,6 +46,7 @@ import type {
   AgentBrief,
   BossSynthesis,
   BuildingType,
+  ClimateMeta,
   Comparison,
   MatrixSummary,
   Memo,
@@ -99,6 +100,7 @@ export default function HomePage() {
   const [matrixSummary, setMatrixSummary] = useState<MatrixSummary | null>(
     null,
   );
+  const [climateMeta, setClimateMeta] = useState<ClimateMeta | null>(null);
   const [memo, setMemo] = useState<Memo | null>(null);
   const [briefs, setBriefs] = useState<Record<string, AgentBrief> | null>(null);
   const [synthesis, setSynthesis] = useState<BossSynthesis | null>(null);
@@ -183,6 +185,7 @@ export default function HomePage() {
     setComparison(null);
     setYearScenarios(null);
     setMatrixSummary(null);
+    setClimateMeta(null);
     setMemo(null);
     setBriefs(null);
     setSynthesis(null);
@@ -376,11 +379,25 @@ export default function HomePage() {
         rooms,
         overrides,
         auth0Sub,
+        {
+          lat: activeSite.lat,
+          lng: activeSite.lng,
+          name: activeSite.name,
+        },
       );
       if (runToken.current !== token) return;
       appendLog("Sim matrix ready.");
+      const climateSrc = year.climate?.source ?? "benchmark";
+      appendLog(
+        `Climate curves: ${climateSrc}` +
+          (year.climate?.peaks_c?.heatwave_full != null
+            ? ` (heat peak ${year.climate.peaks_c.heatwave_full} C)`
+            : "") +
+          ".",
+      );
       setYearScenarios(year.scenarios);
       setMatrixSummary(year.matrix_summary);
+      setClimateMeta(year.climate ?? null);
       setComparison(year.comparison);
       setBriefs(year.briefs);
       setSynthesis(year.synthesis);
@@ -421,6 +438,9 @@ export default function HomePage() {
     componentsByOption,
     rooms,
     uiType,
+    activeSite.lat,
+    activeSite.lng,
+    activeSite.name,
   ]);
 
   const explainMemo = useCallback(() => {
@@ -524,6 +544,9 @@ export default function HomePage() {
                 matrixSummary={matrixSummary}
                 scenarios={yearScenarios}
                 focusScenario={scenario}
+                siteLat={activeSite.lat}
+                siteLng={activeSite.lng}
+                climate={climateMeta}
                 onFocusScenario={(key) =>
                   setScenario(key as StressScenarioKey)
                 }
