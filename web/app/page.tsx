@@ -34,7 +34,8 @@ import {
   generateFallbackSites,
   type CandidateSite,
 } from "@/lib/candidate-sites";
-import type { GeocodeResult } from "@/lib/geocode";
+import { fetchAreaBrief, type GeocodeResult } from "@/lib/geocode";
+import type { AreaBrief } from "@/components/area-brief-panel";
 import {
   DEFAULT_SCENARIO,
   type StressScenarioKey,
@@ -125,6 +126,8 @@ export default function HomePage() {
   const [sitesNote, setSitesNote] = useState(
     "Loading empty parcels from OpenStreetMap…",
   );
+  const [areaBrief, setAreaBrief] = useState<AreaBrief | null>(null);
+  const [areaLoading, setAreaLoading] = useState(false);
   const runToken = useRef(0);
 
   const enterApp = useCallback(() => {
@@ -197,12 +200,38 @@ export default function HomePage() {
       jumpToFirst = true,
     ) => {
       appendLog(`Finding empty parcels near ${placeName}...`);
+      setAreaLoading(true);
+
+      if (jumpToFirst) {
+        setActiveSite((prev) => ({
+          ...prev,
+          name: placeName,
+          lng,
+          lat,
+          zoom,
+        }));
+      }
+
+      const briefTask = fetchAreaBrief(lat, lng)
+        .then((brief) => {
+          setAreaBrief(brief);
+          setAreaLoading(false);
+          appendLog(
+            `Area climate: ${brief.climate.weather ?? "—"}, ${brief.climate.temp_c ?? "—"}°C (live Open-Meteo).`,
+          );
+          return brief;
+        })
+        .catch(() => {
+          setAreaBrief(null);
+          setAreaLoading(false);
+          return null;
+        });
+
       const { sites, note, fromOsm } = await fetchEmptySites(lng, lat);
       const first = sites[0];
       setCandidates(sites);
       setSitesNote(note);
       if (jumpToFirst) {
-        // A search is an explicit move: fly to the first found parcel.
         setSelectedCandidateId(first?.id ?? null);
         setActiveSite({
           name: placeName,
@@ -214,6 +243,22 @@ export default function HomePage() {
         setPlaced(false);
         invalidate();
       }
+
+      const kinds = [
+        ...new Set(
+          sites
+            .map((s) => s.kind)
+            .filter((k): k is string => Boolean(k) && k !== "approx"),
+        ),
+      ];
+      const brief = await briefTask;
+      if (brief) {
+        setAreaBrief({
+          ...brief,
+          land: { empty_count: sites.length, kinds },
+        });
+      }
+
       appendLog(
         fromOsm
           ? `Found ${sites.length} empty OSM parcels (parking / brownfield / open land); click green to select.`
@@ -424,7 +469,7 @@ export default function HomePage() {
 
   return (
     <div className="flex h-full flex-col">
-      <TopBar siteName={activeSite.name} />
+      <TopBar siteName={activeSite.name} onSearchPlace={handleSearchPlace} />
       {FLAGS.voice && (
         <VoiceController
           onSetOption={handleOptionChange}
@@ -435,38 +480,34 @@ export default function HomePage() {
         />
       )}
       <div className="relative flex min-h-0 flex-1">
-        <IconRail placed={placed} />
+        <IconRail />
+
+        <DesignPanel
+          placed={placed}
+          siteName={activeSite.name}
+          uiType={uiType}
+          rooms={rooms}
+          option={option}
+          components={activeComponents}
+          running={running}
+          areaBrief={areaBrief}
+          areaLoading={areaLoading}
+          onPlace={handlePlace}
+          onTypeChange={handleTypeChange}
+          onRoomsChange={handleRoomsChange}
+          onOptionChange={handleOptionChange}
+          onComponentChange={handleComponentChange}
+          onRunStressTest={handleRunStressTest}
+        />
 
         <main className="relative min-w-0 flex-1">
-          {placed && (
-            <div className="absolute left-0 right-0 top-0 z-10 border-b border-panel-border bg-panel/95 px-4 py-1.5">
-              <p className="text-[10.5px] font-semibold uppercase tracking-wider text-text-soft">
-                Building Assembler - Configure Your Hybrid Structure
-              </p>
-            </div>
-          )}
           <SiteMap
             building={building}
             activeSite={activeSite}
             candidates={candidates}
             selectedCandidateId={selectedCandidateId}
             sitesNote={sitesNote}
-            onSearchPlace={handleSearchPlace}
             onSelectCandidate={handleSelectCandidate}
-          />
-          <DesignPanel
-            placed={placed}
-            uiType={uiType}
-            rooms={rooms}
-            option={option}
-            components={activeComponents}
-            running={running}
-            onPlace={handlePlace}
-            onTypeChange={handleTypeChange}
-            onRoomsChange={handleRoomsChange}
-            onOptionChange={handleOptionChange}
-            onComponentChange={handleComponentChange}
-            onRunStressTest={handleRunStressTest}
           />
           {(overlay === "stress" || overlay === "memo") && comparison && (
             <div className="absolute inset-0 z-20">
@@ -511,12 +552,33 @@ export default function HomePage() {
           )}
           {(overlay === "stress" || overlay === "memo") && (
             <button
+              type="button"
               onClick={() => setOverlay("none")}
               className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full border border-white/25 bg-ink/90 px-4 py-1.5 text-[12px] font-medium text-white hover:bg-ink"
             >
               Back to map
             </button>
           )}
+          <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setOverlay(overlay === "runs" ? "none" : "runs")
+              }
+              className="rounded border border-panel-border bg-panel/95 px-3 py-2 text-[12px] font-semibold shadow-md backdrop-blur-sm hover:bg-panel-muted"
+            >
+              Past runs
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setOverlay(overlay === "profiles" ? "none" : "profiles")
+              }
+              className="rounded border border-panel-border bg-panel/95 px-3 py-2 text-[12px] font-semibold shadow-md backdrop-blur-sm hover:bg-panel-muted"
+            >
+              Energy load profiles
+            </button>
+          </div>
         </main>
 
         {placed ? (
@@ -524,34 +586,30 @@ export default function HomePage() {
         ) : (
           <aside className="flex w-72 shrink-0 flex-col border-l border-panel-border bg-panel">
             <div className="border-b border-panel-border px-4 py-3">
-              <h2 className="text-[15px] font-semibold">
-                Awaiting Building Design Input
-              </h2>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-soft">
+                Activity
+              </p>
+              <h2 className="text-[14px] font-semibold">Next step</h2>
             </div>
-            <div className="flex flex-1 items-center justify-center px-4 text-center text-[13px] text-text-soft">
-              Awaiting Building Design Input
+            <div className="flex flex-1 flex-col gap-3 px-4 py-4 text-[13px] leading-relaxed text-text-soft">
+              <p>1. Search a city in the top bar, or keep the Toronto demo.</p>
+              <p>2. Click a green empty parcel on the map.</p>
+              <p>3. Place the building, then run year stress.</p>
+              {log.length > 0 && (
+                <ul className="mt-2 space-y-2 border-t border-panel-border pt-3">
+                  {log.map((line, i) => (
+                    <li
+                      key={i}
+                      className="rounded-md bg-panel-muted px-2.5 py-2 text-[12px] text-text-strong"
+                    >
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </aside>
         )}
-
-        <div className="absolute bottom-3 right-[19.5rem] z-10 flex flex-col gap-2">
-          <button
-            onClick={() =>
-              setOverlay(overlay === "runs" ? "none" : "runs")
-            }
-            className="rounded border border-panel-border bg-panel px-3 py-2 text-[12px] font-semibold shadow hover:bg-panel-muted"
-          >
-            Past runs
-          </button>
-          <button
-            onClick={() =>
-              setOverlay(overlay === "profiles" ? "none" : "profiles")
-            }
-            className="rounded border border-panel-border bg-panel px-3 py-2 text-[12px] font-semibold shadow hover:bg-panel-muted"
-          >
-            Energy Load Profiles
-          </button>
-        </div>
       </div>
 
       <SignInPrompt
@@ -563,25 +621,17 @@ export default function HomePage() {
   );
 }
 
-function IconRail({ placed }: { placed: boolean }) {
+function IconRail() {
   return (
-    <div className="relative z-10 flex w-12 shrink-0 flex-col items-center gap-2 border-r border-panel-border bg-panel py-3">
+    <div className="relative z-10 flex w-11 shrink-0 flex-col items-center gap-2 border-r border-panel-border bg-panel py-3">
       {[0, 1, 2, 3, 4].map((i) => (
         <span
           key={i}
-          className="grid h-9 w-9 place-items-center rounded border border-panel-border bg-panel-muted"
+          className="grid h-8 w-8 place-items-center rounded border border-panel-border bg-panel-muted"
         >
           <RailThumb index={i} />
         </span>
       ))}
-      {placed && (
-        <span
-          className="mt-3 text-[9px] font-medium uppercase tracking-widest text-text-soft"
-          style={{ writingMode: "vertical-rl" }}
-        >
-          Updater metrics updating live
-        </span>
-      )}
     </div>
   );
 }
