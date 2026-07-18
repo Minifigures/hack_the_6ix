@@ -30,3 +30,20 @@ body {
 .maplibregl-ctrl-attrib {
   font-size: 10px;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #memo-card,
+  #memo-card * {
+    visibility: visible;
+  }
+  #memo-card {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    max-width: none;
+    border-radius: 0;
+  }
+}
