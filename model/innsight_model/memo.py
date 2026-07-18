@@ -15,7 +15,7 @@ from . import benchmarks as B
 from .friction import friction_score, friction_terms
 from .sim import Comparison, OptionResult
 
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-flash-latest"
 
 _HVAC_PERF_KEYS = [
     "heat_pump_cop",
@@ -210,7 +210,9 @@ _FALLBACK_CAVEATS = [
 ]
 
 
-def _fallback_narrative(memo: dict[str, Any]) -> dict[str, Any]:
+def _fallback_narrative(
+    memo: dict[str, Any], *, reason: str = "no_api_key"
+) -> dict[str, Any]:
     rec = memo["comparison"]["recommended"]
     winner = next(o for o in memo["options"] if o["key"] == rec)
     chain = memo["reasoning_chain"]
@@ -223,6 +225,7 @@ def _fallback_narrative(memo: dict[str, Any]) -> dict[str, Any]:
         "reasoning": chain[:-1],
         "caveats": _FALLBACK_CAVEATS,
         "generator": "deterministic-fallback",
+        "fallback_reason": reason,
     }
 
 
@@ -230,8 +233,9 @@ def generate_narrative(
     memo: dict[str, Any], api_key: str | None
 ) -> dict[str, Any]:
     """Gemini structured-output narrative with a deterministic fallback."""
-    if not api_key:
-        return _fallback_narrative(memo)
+    key = (api_key or "").strip()
+    if not key:
+        return _fallback_narrative(memo, reason="no_api_key")
     try:
         from google import genai
         from google.genai import types
@@ -242,7 +246,7 @@ def generate_narrative(
             reasoning: list[str]
             caveats: list[str]
 
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=key)
         payload = {k: v for k, v in memo.items() if k != "footnotes"}
         prompt = (
             "You are writing the recommendation section of an investor-style "
@@ -274,5 +278,17 @@ def generate_narrative(
             "caveats": narrative.caveats,
             "generator": GEMINI_MODEL,
         }
-    except Exception:
-        return _fallback_narrative(memo)
+    except Exception as exc:
+        reason = str(exc)
+        if "RESOURCE_EXHAUSTED" in reason or "429" in reason:
+            reason = (
+                "gemini_credits_depleted: add billing/credits at "
+                "https://aistudio.google.com/"
+            )
+        elif "NOT_FOUND" in reason or "no longer available" in reason:
+            reason = f"gemini_model_unavailable: {GEMINI_MODEL}"
+        else:
+            # Keep a short actionable snippet (status + message), not the full dump.
+            short = reason.split(". ", 1)[0][:160]
+            reason = f"gemini_error: {short}"
+        return _fallback_narrative(memo, reason=reason)

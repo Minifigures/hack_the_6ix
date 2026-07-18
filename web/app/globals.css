@@ -85,18 +85,184 @@ body {
 }
 
 @media print {
+  @page {
+    size: letter portrait;
+    margin: 14mm 14mm 16mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #10151c !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   body * {
     visibility: hidden;
   }
+
   #memo-card,
   #memo-card * {
     visibility: visible;
   }
+
   #memo-card {
     position: absolute;
-    inset: 0;
+    left: 0;
+    top: 0;
+    width: 100%;
     margin: 0;
     max-width: none;
     border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    color: #10151c;
+    font-family: var(--font-sans);
+  }
+
+  .memo-letterhead {
+    margin-bottom: 14pt;
+    padding-bottom: 10pt;
+    border-bottom: 2.5pt solid #123346;
+  }
+
+  .memo-letterhead-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6pt;
+  }
+
+  .memo-brand {
+    font-family: var(--font-display);
+    font-size: 11pt;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: #123346;
+  }
+
+  .memo-meta {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #5a6472;
+  }
+
+  .memo-title {
+    font-family: var(--font-display);
+    font-size: 16pt;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #10151c;
+    margin: 0;
+  }
+
+  .memo-deck {
+    margin-top: 4pt;
+    font-size: 9pt;
+    line-height: 1.45;
+    color: #5a6472;
+  }
+
+  .memo-compare {
+    margin-top: 10pt;
+  }
+
+  .memo-compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+
+  .memo-compare-table th,
+  .memo-compare-table td {
+    border: 0.6pt solid #d0d5dd;
+    padding: 6pt 7pt;
+    vertical-align: top;
+    text-align: left;
+  }
+
+  .memo-compare-table thead th {
+    background: #f4f6f9;
+    font-weight: 600;
+  }
+
+  .memo-compare-table th.metric,
+  .memo-compare-table td.metric {
+    width: 22%;
+    color: #5a6472;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+
+  .memo-compare-table th.pick,
+  .memo-compare-table td.pick {
+    background: #fff8e1;
+  }
+
+  .memo-compare-table .opt-label {
+    display: block;
+    font-size: 10pt;
+    font-weight: 700;
+    color: #10151c;
+  }
+
+  .memo-compare-table .rec-pill {
+    display: inline-block;
+    margin-top: 2pt;
+    margin-bottom: 2pt;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
+    background: #d8f3e7;
+    color: #0d7a55;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .memo-compare-table .opt-sub,
+  .memo-compare-table .sub {
+    display: block;
+    margin-top: 2pt;
+    font-size: 7.5pt;
+    font-weight: 400;
+    color: #5a6472;
+    line-height: 1.35;
+  }
+
+  .memo-kpi {
+    border-color: #d0d5dd !important;
+    background: #fafbfc;
+  }
+
+  .memo-rec {
+    border-left: 3.5pt solid #f5c518 !important;
+    background: #f8fafc !important;
+    border-color: #e2e6ec !important;
+  }
+
+  .memo-sources {
+    border-top-color: #d0d5dd !important;
+  }
+
+  .memo-footer {
+    margin-top: 14pt;
+    padding-top: 8pt;
+    border-top: 0.6pt solid #d0d5dd;
+    font-size: 7.5pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #5a6472;
+  }
+
+  a {
+    word-break: break-all;
   }
 }
+

@@ -26,9 +26,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-CA" className={`${fraunces.variable} ${sourceSans.variable}`}>
+    <html
+      lang="en-CA"
+      className={`${fraunces.variable} ${sourceSans.variable}`}
+      suppressHydrationWarning
+    >
       <body
         className="h-screen overflow-hidden"
+        suppressHydrationWarning
         style={
           {
             "--font-display": "var(--font-fraunces), ui-serif, Georgia, serif",
