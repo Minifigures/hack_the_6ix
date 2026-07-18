@@ -12,5 +12,9 @@ function hasAuth0Env(): boolean {
 }
 
 export const auth0: Auth0Client | null = hasAuth0Env()
-  ? new Auth0Client()
+  ? new Auth0Client({
+      // Avoid Auth0 /oidc/logout "Oops" errors on many tenants; v2 + Allowed Logout URLs.
+      logoutStrategy: "v2",
+      includeIdTokenHintInOIDCLogoutUrl: false,
+    })
   : null;

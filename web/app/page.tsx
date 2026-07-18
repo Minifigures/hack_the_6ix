@@ -24,6 +24,7 @@ import {
   type BuildComponents,
 } from "@/lib/build-config";
 import { FLAGS } from "@/lib/flags";
+import { ENTERED_KEY } from "@/lib/auth0-shared";
 import { useAuth } from "@/lib/use-auth";
 import type { BuildingType, Comparison, Memo, OptionKey } from "@/lib/types";
 
@@ -50,7 +51,6 @@ const UI_FLOORS: Record<UiBuildingType, number> = {
 };
 
 const SCENARIO = "heatwave_full";
-const ENTERED_KEY = "innsight-entered";
 
 type Overlay = "none" | "stress" | "memo" | "profiles";
 
@@ -95,6 +95,16 @@ export default function HomePage() {
       }
       setSignIn({ open: true, reason: "start" });
       return;
+    }
+
+    // After logout (or expired session), always show landing — never restore the assembler.
+    if (FLAGS.auth0) {
+      if (auth.loading) return;
+      if (!auth.loggedIn) {
+        sessionStorage.removeItem(ENTERED_KEY);
+        setEntered(false);
+        return;
+      }
     }
 
     if (wasEntered) setEntered(true);
