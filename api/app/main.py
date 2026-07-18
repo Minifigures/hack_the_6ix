@@ -25,6 +25,7 @@ from innsight_model.sim import (
 )
 
 from app.agents.router import router as agents_router
+from app.area import router as area_router
 from app.geocode import router as geocode_router
 from app.renders import router as renders_router
 from app.sites import router as sites_router
@@ -56,6 +57,7 @@ app.include_router(storage_router)
 app.include_router(users_router)
 app.include_router(geocode_router)
 app.include_router(sites_router)
+app.include_router(area_router)
 app.include_router(agents_router)
 
 

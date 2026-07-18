@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ComponentIcon, TypeIcon } from "@/components/component-icons";
+import type { AreaBrief } from "@/components/area-brief-panel";
 import {
   COMPONENT_LABELS,
   type BuildComponents,
@@ -51,11 +52,14 @@ const COMPONENT_SECTIONS: {
 
 interface DesignPanelProps {
   placed: boolean;
+  siteName: string;
   uiType: UiBuildingType;
   rooms: number;
   option: OptionKey;
   components: BuildComponents;
   running: boolean;
+  areaBrief: AreaBrief | null;
+  areaLoading: boolean;
   onPlace: () => void;
   onTypeChange: (type: UiBuildingType) => void;
   onRoomsChange: (rooms: number) => void;
@@ -64,13 +68,21 @@ interface DesignPanelProps {
   onRunStressTest: () => void;
 }
 
+function fmt(n: number | null | undefined, suffix = "", digits = 0): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return `${n.toFixed(digits)}${suffix}`;
+}
+
 export function DesignPanel({
   placed,
+  siteName,
   uiType,
   rooms,
   option,
   components,
   running,
+  areaBrief,
+  areaLoading,
   onPlace,
   onTypeChange,
   onRoomsChange,
@@ -78,12 +90,8 @@ export function DesignPanel({
   onComponentChange,
   onRunStressTest,
 }: DesignPanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(COMPONENT_SECTIONS.map((s) => s.title)),
-  );
-  const [typeIndex, setTypeIndex] = useState(() =>
-    Math.max(0, UI_TYPES.findIndex((t) => t.key === uiType)),
+    () => new Set(["Foundation"]),
   );
 
   const toggleSection = (title: string) => {
@@ -95,173 +103,252 @@ export function DesignPanel({
     });
   };
 
-  const visibleTypes = [
-    UI_TYPES[typeIndex % UI_TYPES.length],
-    UI_TYPES[(typeIndex + 1) % UI_TYPES.length],
-    UI_TYPES[(typeIndex + 2) % UI_TYPES.length],
-  ];
+  const shortName = siteName.split(",")[0] ?? siteName;
 
-  if (!placed) {
-    return (
-      <div className="pointer-events-auto absolute left-16 top-14 z-10 w-64 rounded-lg bg-panel p-4 shadow-xl">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-text-soft">
-          Building Assembler
+  return (
+    <aside className="flex w-[280px] shrink-0 flex-col border-r border-panel-border bg-panel">
+      <div className="border-b border-panel-border px-3.5 py-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-soft">
+          Building assembler
+        </p>
+        <h2 className="mt-0.5 text-[14px] font-semibold leading-tight text-text-strong">
+          {placed ? "Design options" : "Place a building"}
         </h2>
-        <button
-          onClick={onPlace}
-          className="mt-3 w-full rounded bg-ink px-3 py-2.5 text-[13px] font-semibold text-accent hover:bg-ink-raised"
-        >
-          Place building at 45 The Esplanade
-        </button>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3.5 py-3">
+        <SiteClimateCard
+          placeName={shortName}
+          brief={areaBrief}
+          loading={areaLoading}
+        />
+
+        {!placed ? (
+          <div className="rounded-md border border-dashed border-panel-border bg-panel-muted/70 p-3">
+            <p className="text-[12px] leading-snug text-text-soft">
+              Click a green parcel on the map, then place a massing model to
+              configure structure and HVAC.
+            </p>
+            <button
+              type="button"
+              onClick={onPlace}
+              className="mt-3 w-full rounded bg-ink px-3 py-2.5 text-[13px] font-semibold text-accent hover:bg-ink-raised"
+            >
+              Place building at {shortName}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div>
+              <span className="text-[11px] font-semibold text-text-soft">
+                Building type
+              </span>
+              <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                {UI_TYPES.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    disabled={running}
+                    onClick={() => onTypeChange(t.key)}
+                    title={t.blurb}
+                    className={`flex flex-col items-center gap-1 rounded-md border px-1 py-2 transition-colors ${
+                      uiType === t.key
+                        ? "border-[#5B9BD5] bg-[#EAF4FB]"
+                        : "border-panel-border hover:bg-panel-muted"
+                    }`}
+                  >
+                    <TypeIcon type={t.key} />
+                    <span className="text-[10.5px] font-medium">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2.5">
+                <label
+                  htmlFor="rooms-slider"
+                  className="text-[10.5px] font-medium text-text-soft"
+                >
+                  Rooms:{" "}
+                  <span className="font-semibold text-text-strong">{rooms}</span>
+                </label>
+                <input
+                  id="rooms-slider"
+                  type="range"
+                  disabled={running}
+                  min={uiType === "hotel" ? 10 : 2}
+                  max={uiType === "hotel" ? 80 : 16}
+                  value={rooms}
+                  onChange={(e) => onRoomsChange(Number(e.target.value))}
+                  className="mt-0.5 w-full accent-[#5B9BD5]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-semibold text-text-soft">
+                Configuration
+              </span>
+              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                <PresetButton
+                  active={option === "A"}
+                  label="Option A"
+                  sub="Concrete + Central"
+                  onClick={() => onOptionChange("A")}
+                />
+                <PresetButton
+                  active={option === "B"}
+                  label="Option B"
+                  sub="Timber + Heat Pumps"
+                  onClick={() => onOptionChange("B")}
+                />
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-semibold text-text-soft">
+                Components
+              </span>
+              <div className="mt-1 space-y-0.5">
+                {COMPONENT_SECTIONS.map((section) => {
+                  const open = openSections.has(section.title);
+                  return (
+                    <div key={section.title}>
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(section.title)}
+                        className="flex w-full items-center gap-1.5 py-1.5 text-[11.5px] font-medium text-text-strong"
+                      >
+                        <Chevron open={open} small />
+                        {section.title}
+                      </button>
+                      {open && (
+                        <div className="mb-1.5 grid grid-cols-2 gap-1.5 pl-3">
+                          {section.options.map((value) => (
+                            <button
+                              key={value}
+                              type="button"
+                              disabled={running}
+                              onClick={() =>
+                                onComponentChange(section.field, value)
+                              }
+                              className={`flex flex-col items-center gap-1 rounded-md border px-1 py-1.5 ${
+                                components[section.field] === value
+                                  ? "border-[#5B9BD5] bg-[#EAF4FB]"
+                                  : "border-panel-border hover:bg-panel-muted"
+                              }`}
+                            >
+                              <ComponentIcon
+                                kind={
+                                  value as Parameters<
+                                    typeof ComponentIcon
+                                  >[0]["kind"]
+                                }
+                              />
+                              <span className="text-center text-[9.5px] leading-tight">
+                                {COMPONENT_LABELS[value]}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 -mx-3.5 border-t border-panel-border bg-panel px-3.5 pt-3 pb-1">
+              <button
+                type="button"
+                onClick={onRunStressTest}
+                disabled={running}
+                className="w-full rounded bg-alert px-3 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {running ? "Running year stress…" : "Run year stress"}
+              </button>
+              <p className="mt-1.5 text-[9.5px] leading-snug text-text-soft">
+                Parallel extreme weekends (heat, shoulder, July, winter). One
+                portfolio memo.
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function SiteClimateCard({
+  placeName,
+  brief,
+  loading,
+}: {
+  placeName: string;
+  brief: AreaBrief | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-md border border-panel-border bg-panel-muted/60 px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-soft">
+          Site climate
+        </p>
+        <p className="mt-1 text-[12px] text-text-soft">Loading live weather…</p>
       </div>
     );
   }
 
+  if (!brief) return null;
+
+  const c = brief.climate;
   return (
-    <div className="pointer-events-auto absolute bottom-0 left-12 top-[30px] z-10 flex w-[276px] flex-col border-r border-panel-border bg-panel shadow-md">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-between border-b border-panel-border px-3.5 py-2.5"
-      >
-        <span className="text-[13px] font-semibold">Design Options</span>
-        <Chevron open={!collapsed} />
-      </button>
-
-      {!collapsed && (
-        <div className="flex-1 space-y-3 overflow-y-auto px-3.5 py-3">
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-text-soft">Type</span>
-              <div className="flex gap-1">
-                <CarouselArrow
-                  dir="left"
-                  onClick={() =>
-                    setTypeIndex((i) => (i + UI_TYPES.length - 1) % UI_TYPES.length)
-                  }
-                />
-                <CarouselArrow
-                  dir="right"
-                  onClick={() => setTypeIndex((i) => (i + 1) % UI_TYPES.length)}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {visibleTypes.map((t) => (
-                <button
-                  key={t.key}
-                  disabled={running}
-                  onClick={() => onTypeChange(t.key)}
-                  title={t.blurb}
-                  className={`flex flex-col items-center gap-1 rounded-md border px-1 py-2 ${
-                    uiType === t.key
-                      ? "border-[#5B9BD5] bg-[#EAF4FB]"
-                      : "border-panel-border hover:bg-panel-muted"
-                  }`}
-                >
-                  <TypeIcon type={t.key} />
-                  <span className="text-[10.5px] font-medium">{t.label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-2">
-              <label
-                htmlFor="rooms-slider"
-                className="text-[10.5px] font-medium text-text-soft"
-              >
-                Rooms: <span className="font-semibold text-text-strong">{rooms}</span>
-              </label>
-              <input
-                id="rooms-slider"
-                type="range"
-                disabled={running}
-                min={uiType === "hotel" ? 10 : 2}
-                max={uiType === "hotel" ? 80 : 16}
-                value={rooms}
-                onChange={(e) => onRoomsChange(Number(e.target.value))}
-                className="mt-0.5 w-full accent-[#5B9BD5]"
-              />
-            </div>
-          </div>
-
-          <div>
-            <span className="text-[11px] font-semibold text-text-soft">
-              Configuration presets
-            </span>
-            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-              <PresetButton
-                active={option === "A"}
-                label="Option A"
-                sub="Concrete + Central"
-                onClick={() => onOptionChange("A")}
-              />
-              <PresetButton
-                active={option === "B"}
-                label="Option B"
-                sub="Timber + Heat Pumps"
-                onClick={() => onOptionChange("B")}
-              />
-            </div>
-          </div>
-
-          <div>
-            <span className="text-[11px] font-semibold text-text-soft">
-              Building Components
-            </span>
-            <div className="mt-1 space-y-1">
-              {COMPONENT_SECTIONS.map((section) => {
-                const open = openSections.has(section.title);
-                return (
-                  <div key={section.title}>
-                    <button
-                      onClick={() => toggleSection(section.title)}
-                      className="flex w-full items-center gap-1.5 py-1 text-[11.5px] font-medium text-text-strong"
-                    >
-                      <Chevron open={open} small />
-                      {section.title}
-                    </button>
-                    {open && (
-                      <div className="mb-1.5 grid grid-cols-2 gap-1.5 pl-4">
-                        {section.options.map((value) => (
-                          <button
-                            key={value}
-                            disabled={running}
-                            onClick={() => onComponentChange(section.field, value)}
-                            className={`flex flex-col items-center gap-1 rounded-md border px-1 py-1.5 ${
-                              components[section.field] === value
-                                ? "border-[#5B9BD5] bg-[#EAF4FB]"
-                                : "border-panel-border hover:bg-panel-muted"
-                            }`}
-                          >
-                            <ComponentIcon
-                              kind={
-                                value as Parameters<typeof ComponentIcon>[0]["kind"]
-                              }
-                            />
-                            <span className="text-center text-[9.5px] leading-tight">
-                              {COMPONENT_LABELS[value]}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            onClick={onRunStressTest}
-            disabled={running}
-            className="w-full rounded bg-alert px-3 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {running ? "Running year stress..." : "Run year stress"}
-          </button>
-          <p className="text-[9.5px] leading-snug text-text-soft">
-            Parallel extreme weekends (heat, shoulder, July, winter, deep cold).
-            Not a full 8760h year. One portfolio memo.
+    <div className="rounded-md border border-panel-border bg-[#f7fafc] px-3 py-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-soft">
+            Site climate · live
+          </p>
+          <p className="mt-0.5 truncate text-[12px] font-semibold text-text-strong">
+            {placeName}
           </p>
         </div>
+        <p className="shrink-0 text-[18px] font-semibold tabular-nums leading-none text-text-strong">
+          {fmt(c.temp_c, "°", 0)}
+        </p>
+      </div>
+      <p className="mt-1.5 text-[11.5px] text-text-strong">
+        {c.weather ?? "—"}
+        <span className="text-text-soft">
+          {" "}
+          · feels {fmt(c.feels_like_c, "°C", 0)}
+        </span>
+      </p>
+      <dl className="mt-2 grid grid-cols-3 gap-1 text-center text-[10px]">
+        <div className="rounded bg-white px-1 py-1">
+          <dt className="text-text-soft">Humidity</dt>
+          <dd className="font-semibold text-text-strong">
+            {fmt(c.humidity_pct, "%")}
+          </dd>
+        </div>
+        <div className="rounded bg-white px-1 py-1">
+          <dt className="text-text-soft">Wind</dt>
+          <dd className="font-semibold text-text-strong">
+            {fmt(c.wind_kmh, "", 0)}
+          </dd>
+        </div>
+        <div className="rounded bg-white px-1 py-1">
+          <dt className="text-text-soft">Elev.</dt>
+          <dd className="font-semibold text-text-strong">
+            {fmt(brief.elevation_m, "m", 0)}
+          </dd>
+        </div>
+      </dl>
+      {brief.land && (
+        <p className="mt-2 text-[10px] leading-snug text-text-soft">
+          {brief.land.empty_count} open parcels nearby
+          {brief.land.kinds.length
+            ? ` · ${brief.land.kinds.slice(0, 2).join(", ")}`
+            : ""}
+        </p>
       )}
     </div>
   );
@@ -280,8 +367,9 @@ function PresetButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`rounded-md border px-2 py-1.5 text-left ${
+      className={`rounded-md border px-2 py-1.5 text-left transition-colors ${
         active
           ? "border-[#5B9BD5] bg-[#EAF4FB]"
           : "border-panel-border hover:bg-panel-muted"
@@ -311,31 +399,5 @@ function Chevron({ open, small }: { open: boolean; small?: boolean }) {
         strokeLinecap="round"
       />
     </svg>
-  );
-}
-
-function CarouselArrow({
-  dir,
-  onClick,
-}: {
-  dir: "left" | "right";
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="grid h-5 w-5 place-items-center rounded border border-panel-border text-text-soft hover:bg-panel-muted"
-      aria-label={dir === "left" ? "Previous type" : "Next type"}
-    >
-      <svg width="9" height="9" viewBox="0 0 12 12" aria-hidden="true">
-        <path
-          d={dir === "left" ? "M8 2 4 6l4 4" : "M4 2l4 4-4 4"}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      </svg>
-    </button>
   );
 }

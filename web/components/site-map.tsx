@@ -7,8 +7,6 @@ import {
   candidatesToFeatureCollection,
   type CandidateSite,
 } from "@/lib/candidate-sites";
-import { LocationSearch } from "@/components/location-search";
-import type { GeocodeResult } from "@/lib/geocode";
 import type { ActiveSite } from "@/lib/site";
 import type { Structure } from "@/lib/types";
 
@@ -78,7 +76,6 @@ interface SiteMapProps {
   candidates: CandidateSite[];
   selectedCandidateId: string | null;
   sitesNote?: string;
-  onSearchPlace: (place: GeocodeResult) => void;
   onSelectCandidate: (site: CandidateSite) => void;
 }
 
@@ -88,7 +85,6 @@ export function SiteMap({
   candidates,
   selectedCandidateId,
   sitesNote,
-  onSearchPlace,
   onSelectCandidate,
 }: SiteMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -263,49 +259,23 @@ export function SiteMap({
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
 
-      {/* Single top chrome: search left, site chip right of it; no stacked text */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-3">
-        <div className="pointer-events-auto min-w-0 flex-1 pl-[300px]">
-          <LocationSearch onSelect={onSearchPlace} />
-        </div>
-        <div className="pointer-events-none max-w-[16rem] shrink-0 rounded-md border border-panel-border bg-white/95 px-3 py-2 shadow-md">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-soft">
+      <div className="pointer-events-none absolute right-3 top-3 z-20 max-w-[15rem]">
+        <div className="rounded-md border border-white/20 bg-ink/80 px-3 py-2 shadow-lg backdrop-blur-sm">
+          <p className="text-[9px] font-semibold uppercase tracking-wider text-white/55">
             Active site
           </p>
-          <p className="truncate text-[12px] font-semibold text-text-strong">
+          <p className="truncate text-[12px] font-semibold text-white">
             {selectedLabel}
           </p>
         </div>
       </div>
 
-      <button
-        type="button"
-        className="absolute bottom-24 right-3 z-10 grid h-8 w-8 place-items-center rounded bg-white shadow hover:bg-panel-muted"
-        title="Layers"
-      >
-        <LayersIcon />
-      </button>
-
-      <p className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-lg -translate-x-1/2 rounded bg-ink/75 px-3 py-1.5 text-center text-[10px] leading-snug text-white/90">
+      <p className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-md -translate-x-1/2 rounded-md bg-ink/80 px-3 py-1.5 text-center text-[10px] leading-snug text-white/90 backdrop-blur-sm">
         {sitesNote?.trim()
           ? sitesNote
-          : "Green outlines = empty OSM land (parking / brownfield / open). Click a parcel to build (not on houses or roads)."}
+          : "Green = open OSM land. Click a parcel to select — not buildings or roads."}
       </p>
     </div>
-  );
-}
-
-function LayersIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 18 18" aria-hidden="true">
-      <path
-        d="M9 2 16 6 9 10 2 6 9 2ZM3.5 9.5 9 12.7l5.5-3.2M3.5 12.5 9 15.7l5.5-3.2"
-        fill="none"
-        stroke="#3a4452"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 
@@ -337,9 +307,9 @@ function syncBuilding(map: maplibregl.Map, building: BuildingSpec | null) {
   map.setLayoutProperty("building-mass", "visibility", visibility);
   map.setLayoutProperty("building-shell", "visibility", visibility);
   if (!building) return;
-  const total = building ? building.floors * 3.4 : 0;
+  const total = building.floors * 3.4;
   const lower = total * 0.55;
-  const colour = building ? STRUCTURE_COLOUR[building.structure] : "#9aa5b1";
+  const colour = STRUCTURE_COLOUR[building.structure];
   map.setPaintProperty("building-mass", "fill-extrusion-height", lower);
   map.setPaintProperty("building-mass", "fill-extrusion-color", colour);
   map.setPaintProperty("building-shell", "fill-extrusion-base", lower);
