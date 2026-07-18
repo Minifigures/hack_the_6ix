@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { FLAGS } from "@/lib/flags";
-import { STEP_UP_ACR } from "@/lib/auth0-shared";
+import { MFA_KEY, STEP_UP_ACR } from "@/lib/auth0-shared";
 
-const MFA_KEY = "innsight-mfa-verified";
 const ROLES_CLAIM = "https://innsight.app/roles";
 
 export interface AuthState {

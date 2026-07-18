@@ -1,11 +1,16 @@
 "use client";
 
 import { SITE } from "@/lib/site";
-import { loginHref, logoutHref } from "@/lib/auth0-shared";
+import { clearLocalAuthState, loginHref, logoutHref } from "@/lib/auth0-shared";
 import { useAuth } from "@/lib/use-auth";
 
 export function TopBar() {
   const auth = useAuth();
+
+  const handleLogout = () => {
+    clearLocalAuthState();
+  };
+
   return (
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-ink-border bg-ink px-4 text-white">
       <div className="flex items-center gap-2">
@@ -29,7 +34,8 @@ export function TopBar() {
                 )}
               </span>
               <a
-                href={logoutHref}
+                href={logoutHref()}
+                onClick={handleLogout}
                 className="rounded border border-ink-border px-2 py-1 text-[11px] hover:bg-ink-raised"
               >
                 Log out
