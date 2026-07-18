@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/lib/use-auth";
 import type { Memo, MemoOption } from "@/lib/types";
 
 interface MemoViewProps {
@@ -21,6 +22,8 @@ function Sup({ refs }: { refs: number[] }) {
 }
 
 export function MemoView({ memo, onClose }: MemoViewProps) {
+  const auth = useAuth();
+  const exportGated = auth.enabled && !auth.mfaVerified;
   return (
     <div className="pointer-events-auto absolute inset-0 z-20 overflow-y-auto bg-[#0b1420]/70 p-5 backdrop-blur-sm print:overflow-visible print:bg-white print:p-0">
       <div
@@ -30,11 +33,18 @@ export function MemoView({ memo, onClose }: MemoViewProps) {
         <div className="flex items-start justify-between print:hidden">
           <div />
           <div className="flex gap-2">
+            {auth.enabled && auth.mfaVerified && (
+              <span className="rounded bg-mint/20 px-2 py-1.5 text-[11px] font-semibold text-[#0d7a55]">
+                Identity verified (MFA)
+              </span>
+            )}
             <button
-              onClick={() => window.print()}
+              onClick={() =>
+                exportGated ? auth.startStepUp() : window.print()
+              }
               className="rounded border border-panel-border px-3 py-1.5 text-[12px] font-semibold hover:bg-panel-muted"
             >
-              Export / print
+              {exportGated ? "Verify identity to export (MFA)" : "Export / print"}
             </button>
             <button
               onClick={onClose}

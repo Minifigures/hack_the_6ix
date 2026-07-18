@@ -1,6 +1,10 @@
+"use client";
+
 import { SITE } from "@/lib/site";
+import { useAuth } from "@/lib/use-auth";
 
 export function TopBar() {
+  const auth = useAuth();
   return (
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-ink-border bg-ink px-4 text-white">
       <div className="flex items-center gap-2">
@@ -12,6 +16,24 @@ export function TopBar() {
       <div className="h-5 w-px bg-ink-border" />
       <span className="text-[13px] text-white/80">{SITE.projectTitle}</span>
       <div className="ml-auto flex items-center gap-3 text-white/60">
+        {auth.enabled &&
+          (auth.loggedIn ? (
+            <span className="rounded bg-ink-raised px-2 py-1 text-[11px]">
+              {auth.name ?? "Signed in"}
+              {auth.role && (
+                <span className="ml-1.5 rounded bg-accent/20 px-1 py-px text-[9px] font-bold uppercase text-accent">
+                  {auth.role}
+                </span>
+              )}
+            </span>
+          ) : (
+            <a
+              href="/auth/login"
+              className="rounded border border-ink-border px-2 py-1 text-[11px] hover:bg-ink-raised"
+            >
+              Log in
+            </a>
+          ))}
         <span
           className="grid h-7 w-7 place-items-center rounded-full border border-ink-border text-xs"
           title="Help"
