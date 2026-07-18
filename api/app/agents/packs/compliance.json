@@ -1,0 +1,49 @@
+{
+  "jurisdiction": "City of Toronto / Province of Ontario",
+  "building_type_notes": {
+    "homestay": "Small operator short-term rental rules and licensing may apply; check Toronto STR bylaw and provincial hotel tax if advertising as lodging.",
+    "boutique": "Purpose-built hotel typically under Ontario Building Code Part 3; hospitality occupancy classification.",
+    "tower": "High-rise Part 3; additional high-building measures and egress."
+  },
+  "energy_and_climate": [
+    {
+      "item": "Ontario Building Code energy efficiency",
+      "note": "New buildings must meet current OBC energy provisions; Toronto Green Standard (TGS) may apply for site plan applications.",
+      "status": "heuristic"
+    },
+    {
+      "item": "Toronto Green Standard",
+      "note": "If site plan approval is required, TGS tiers drive energy, GHG, and resilience requirements that favour electrification and lower embodied carbon.",
+      "status": "heuristic"
+    },
+    {
+      "item": "Mass timber",
+      "note": "Encapsulated mass timber construction (EMTC) is allowed under recent OBC amendments within height/area limits; fire and acoustic detailing add design cost.",
+      "status": "estimate"
+    },
+    {
+      "item": "Central gas HVAC",
+      "note": "Gas-fired central plant remains code-compliant today but faces rising carbon-price exposure and potential future electrification policy pressure.",
+      "status": "estimate"
+    }
+  ],
+  "hospitality_ops": [
+    {
+      "item": "Municipal accommodation tax / HST",
+      "note": "Lodging revenue typically attracts HST and local accommodation tax; structure does not change tax, but scale does.",
+      "status": "heuristic"
+    },
+    {
+      "item": "Accessibility",
+      "note": "AODA / OBC barrier-free requirements for guest rooms and public areas.",
+      "status": "heuristic"
+    }
+  ],
+  "sources": [
+    {
+      "label": "Compliance pack: Ontario/Toronto hospitality + energy checklist",
+      "status": "estimate",
+      "url": null
+    }
+  ]
+}

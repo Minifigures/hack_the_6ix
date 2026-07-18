@@ -4,8 +4,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load repo-root .env before any app modules read os.environ.
+# Load env before any app modules read os.environ.
+# Repo-root first, then api/.env so local API secrets win.
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +24,7 @@ from innsight_model.sim import (
     run_option,
 )
 
+from app.agents.router import router as agents_router
 from app.renders import router as renders_router
 from app.stay22 import router as stay22_router
 from app.storage import record_run
@@ -44,6 +47,7 @@ app.include_router(stay22_router)
 app.include_router(renders_router)
 app.include_router(storage_router)
 app.include_router(users_router)
+app.include_router(agents_router)
 
 
 class SimulateRequest(BaseModel):
@@ -142,7 +146,7 @@ def memo(req: CompareRequest) -> dict[str, object]:
     comparison = compare(config_a, config_b, _scenario(req.scenario))
     memo_data = build_memo(comparison, SITE_NAME)
     memo_data["narrative"] = generate_narrative(
-        memo_data, os.environ.get("GEMINI_API_KEY") or None
+        memo_data, (os.environ.get("GEMINI_API_KEY") or "").strip() or None
     )
     record_run(memo_data)
     return memo_data

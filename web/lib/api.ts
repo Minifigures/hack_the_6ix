@@ -1,5 +1,6 @@
 import { API_BASE } from "@/lib/flags";
 import type {
+  Briefing,
   BuildingType,
   Comparison,
   Hvac,
@@ -52,6 +53,20 @@ export function fetchMemo(
   overrides?: OptionOverrides,
 ): Promise<Memo> {
   return post<Memo>("/memo", {
+    building_type: buildingType,
+    rooms,
+    scenario,
+    ...overrides,
+  });
+}
+
+export function fetchBriefing(
+  buildingType: BuildingType,
+  rooms: number,
+  scenario: string,
+  overrides?: OptionOverrides,
+): Promise<Briefing> {
+  return post<Briefing>("/briefing", {
     building_type: buildingType,
     rooms,
     scenario,

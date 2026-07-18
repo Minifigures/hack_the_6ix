@@ -123,6 +123,7 @@ export interface Memo {
     reasoning: string[];
     caveats: string[];
     generator: string;
+    fallback_reason?: string;
   };
   footnotes: Footnote[];
 }
@@ -131,4 +132,44 @@ export interface LoadProfileInfo {
   label: string;
   character: string;
   hourly_shape: number[];
+}
+
+export type SourceStatus =
+  | "live"
+  | "cached"
+  | "benchmark"
+  | "heuristic"
+  | "estimate";
+
+export interface SourceRef {
+  label: string;
+  status: SourceStatus;
+  url?: string | null;
+}
+
+export interface AgentBrief {
+  agent_id: string;
+  title: string;
+  findings: string[];
+  metrics: Record<string, unknown>;
+  risks: string[];
+  sources: SourceRef[];
+  confidence: number;
+}
+
+export interface BossSynthesis {
+  environmental_impact: string[];
+  business_impact: string[];
+  recommendation_alignment: string;
+  reinforces_sim: boolean;
+  open_questions: string[];
+  summary: string;
+}
+
+export interface Briefing {
+  comparison: Comparison;
+  briefs: Record<string, AgentBrief>;
+  synthesis: BossSynthesis;
+  generator: string;
+  fallback_reason?: string | null;
 }

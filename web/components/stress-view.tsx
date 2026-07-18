@@ -1,12 +1,19 @@
 "use client";
 
+import { AgentBriefingPanel } from "@/components/agent-briefing-panel";
 import { LoadChart } from "@/components/load-chart";
 import { MarketPulse } from "@/components/market-pulse";
 import { PixelViewport } from "@/components/pixel-viewport";
 import { RenderPanel } from "@/components/render-panel";
 import { StrainGauge } from "@/components/strain-gauge";
 import { FLAGS } from "@/lib/flags";
-import type { Comparison, OptionKey, OptionResult } from "@/lib/types";
+import type {
+  AgentBrief,
+  BossSynthesis,
+  Comparison,
+  OptionKey,
+  OptionResult,
+} from "@/lib/types";
 
 interface StressViewProps {
   comparison: Comparison;
@@ -14,6 +21,10 @@ interface StressViewProps {
   onSelect: (option: OptionKey) => void;
   onShowMemo: () => void;
   memoReady: boolean;
+  briefs?: Record<string, AgentBrief> | null;
+  synthesis?: BossSynthesis | null;
+  briefingGenerator?: string | null;
+  briefingFallbackReason?: string | null;
 }
 
 export function StressView({
@@ -22,6 +33,10 @@ export function StressView({
   onSelect,
   onShowMemo,
   memoReady,
+  briefs,
+  synthesis,
+  briefingGenerator,
+  briefingFallbackReason,
 }: StressViewProps) {
   return (
     <div className="pointer-events-auto flex h-full flex-col bg-[#0b1420]/92 p-4 backdrop-blur-sm">
@@ -40,6 +55,14 @@ export function StressView({
         <div className="mb-2.5">
           <MarketPulse />
         </div>
+      )}
+      {FLAGS.agents && briefs && synthesis && briefingGenerator && (
+        <AgentBriefingPanel
+          briefs={briefs}
+          synthesis={synthesis}
+          generator={briefingGenerator}
+          fallbackReason={briefingFallbackReason}
+        />
       )}
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
         <OptionColumn

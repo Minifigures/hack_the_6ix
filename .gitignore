@@ -53,10 +53,8 @@ AGENTS.md
 .claude/
 .cowork/
 
-# Cursor — keep committed project rules; ignore local/state
-.cursor/*
-!.cursor/rules/
-!.cursor/rules/**
+# Cursor (rules + local state)
+.cursor/
 
 # internal reference material
 imgs/

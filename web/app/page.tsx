@@ -15,7 +15,12 @@ import { ProfilesPanel } from "@/components/profiles-panel";
 import { SignInPrompt, type SignInReason } from "@/components/sign-in-prompt";
 import { StressView } from "@/components/stress-view";
 import { TopBar } from "@/components/top-bar";
-import { fetchComparison, fetchMemo, type OptionOverrides } from "@/lib/api";
+import {
+  fetchBriefing,
+  fetchComparison,
+  fetchMemo,
+  type OptionOverrides,
+} from "@/lib/api";
 import {
   OPTION_PRESETS,
   deriveHvac,
@@ -26,7 +31,14 @@ import {
 import { FLAGS } from "@/lib/flags";
 import { ENTERED_KEY } from "@/lib/auth0-shared";
 import { useAuth } from "@/lib/use-auth";
-import type { BuildingType, Comparison, Memo, OptionKey } from "@/lib/types";
+import type {
+  AgentBrief,
+  BossSynthesis,
+  BuildingType,
+  Comparison,
+  Memo,
+  OptionKey,
+} from "@/lib/types";
 
 const SiteMap = dynamic(
   () => import("@/components/site-map").then((m) => m.SiteMap),
@@ -70,6 +82,14 @@ export default function HomePage() {
   >({ A: { ...OPTION_PRESETS.A }, B: { ...OPTION_PRESETS.B } });
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [memo, setMemo] = useState<Memo | null>(null);
+  const [briefs, setBriefs] = useState<Record<string, AgentBrief> | null>(null);
+  const [synthesis, setSynthesis] = useState<BossSynthesis | null>(null);
+  const [briefingGenerator, setBriefingGenerator] = useState<string | null>(
+    null,
+  );
+  const [briefingFallbackReason, setBriefingFallbackReason] = useState<
+    string | null
+  >(null);
   const [overlay, setOverlay] = useState<Overlay>("none");
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -127,6 +147,10 @@ export default function HomePage() {
     runToken.current += 1; // discard any in-flight run for the old parameters
     setComparison(null);
     setMemo(null);
+    setBriefs(null);
+    setSynthesis(null);
+    setBriefingGenerator(null);
+    setBriefingFallbackReason(null);
     if (overlay === "stress" || overlay === "memo") setOverlay("none");
   }, [overlay]);
 
@@ -193,12 +217,37 @@ export default function HomePage() {
       hvac_b: deriveHvac(componentsByOption.B),
     };
     try {
-      const comparisonPromise = fetchComparison(
-        engineType, rooms, SCENARIO, overrides,
-      );
       const memoPromise = fetchMemo(engineType, rooms, SCENARIO, overrides);
-      const comparisonResult = await comparisonPromise;
-      if (runToken.current !== token) return;
+      let comparisonResult: Comparison;
+      if (FLAGS.agents) {
+        appendLog("Dispatching specialist agents (market, env, neighbourhood...)...");
+        const briefing = await fetchBriefing(
+          engineType,
+          rooms,
+          SCENARIO,
+          overrides,
+        );
+        if (runToken.current !== token) return;
+        comparisonResult = briefing.comparison;
+        setBriefs(briefing.briefs);
+        setSynthesis(briefing.synthesis);
+        setBriefingGenerator(briefing.generator);
+        setBriefingFallbackReason(briefing.fallback_reason ?? null);
+        appendLog(
+          `Agents ready (${briefing.generator}): ${Object.keys(briefing.briefs).length} briefs + boss.` +
+            (briefing.fallback_reason
+              ? ` Fallback: ${briefing.fallback_reason}`
+              : ""),
+        );
+      } else {
+        comparisonResult = await fetchComparison(
+          engineType,
+          rooms,
+          SCENARIO,
+          overrides,
+        );
+        if (runToken.current !== token) return;
+      }
       setComparison(comparisonResult);
       setOverlay("stress");
       appendLog(
@@ -207,7 +256,12 @@ export default function HomePage() {
       const memoResult = await memoPromise;
       if (runToken.current !== token) return;
       setMemo(memoResult);
-      appendLog(`Memo ready (${memoResult.narrative.generator}).`);
+      appendLog(
+        `Memo ready (${memoResult.narrative.generator}).` +
+          (memoResult.narrative.fallback_reason
+            ? ` Fallback: ${memoResult.narrative.fallback_reason}`
+            : ""),
+      );
     } catch {
       if (runToken.current === token) {
         appendLog("Engine unreachable. Is the API running on port 8000?");
@@ -307,6 +361,10 @@ export default function HomePage() {
                 onSelect={handleOptionChange}
                 onShowMemo={() => memo && setOverlay("memo")}
                 memoReady={memo !== null}
+                briefs={briefs}
+                synthesis={synthesis}
+                briefingGenerator={briefingGenerator}
+                briefingFallbackReason={briefingFallbackReason}
               />
             </div>
           )}

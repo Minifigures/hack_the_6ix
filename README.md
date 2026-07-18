@@ -41,6 +41,7 @@ Honesty first: this table says exactly what is real and what is a labelled simul
 | Stress-test engine | Real deterministic model on those constants; 14 pytest including determinism and the homestay/hotel recommendation flip |
 | Hourly load curves | Generated from published load-profile behaviour; in-app validation overlay against a metered hotel study (Placet et al. 2010) |
 | Stay22 market pulse | Real live demo-mode API calls, forward dates, no listing storage; cache fallback disclosed in-UI |
+| Multi-agent briefing | Specialists (market, environment, neighbourhood, green ratio, friction, compliance) + boss; Gemini structured JSON when keyed, deterministic stubs otherwise; sim remains source of truth for A/B numbers |
 | Memo narrative | Gemini structured output over real computed numbers; deterministic fallback without a key, generator labelled in-UI |
 | Streetscape renders | Illustrative AI imagery, labelled, static fallback disclosed |
 | Community friction score | Documented heuristic (`model/friction.md`), not survey data |

@@ -1,0 +1,23 @@
+{
+  "site_name": "45 The Esplanade",
+  "city": "Toronto",
+  "neighbourhood": "St. Lawrence / Harbourfront edge",
+  "lat": 43.6476,
+  "lng": -79.3744,
+  "land_use": "Mixed-use downtown core; hospitality, condo towers, office, and retail within a few blocks of the Gardiner / harbour.",
+  "transit": "Union Station ~10 min walk; 504 King streetcar; PATH connections nearby.",
+  "walkability": "High; dense grid, food and entertainment on Front / Jarvis / The Esplanade.",
+  "hospitality_context": "Established short-stay and boutique hotel demand from downtown leisure and convention spillover; competition from condo-hotel and STRs within 3 km.",
+  "constraints": [
+    "Harbourfront / St. Lawrence heritage adjacency may raise design scrutiny.",
+    "Gardiner Expressway proximity: noise and air-quality considerations for guest rooms.",
+    "Flood / stormwater: waterfront district drainage capacity during extreme rainfall."
+  ],
+  "sources": [
+    {
+      "label": "Site pack: 45 The Esplanade neighbourhood notes",
+      "status": "estimate",
+      "url": null
+    }
+  ]
+}
