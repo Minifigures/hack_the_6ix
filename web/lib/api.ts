@@ -62,3 +62,20 @@ export function fetchMemo(
 export function fetchProfiles(): Promise<Record<string, LoadProfileInfo>> {
   return get<Record<string, LoadProfileInfo>>("/profiles");
 }
+
+/** Upsert Auth0 profile into MongoDB InnSight.auth (signup / login sync). */
+export function syncAuthUser(user: {
+  sub: string;
+  email?: string | null;
+  name?: string | null;
+  picture?: string | null;
+  role?: string | null;
+}): Promise<{ saved: boolean; upserted?: boolean; reason?: string }> {
+  return post("/users/upsert", {
+    sub: user.sub,
+    email: user.email ?? null,
+    name: user.name ?? null,
+    picture: user.picture ?? null,
+    role: user.role ?? null,
+  });
+}

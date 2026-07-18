@@ -6,37 +6,22 @@ never depends on the database. The summary endpoint is an aggregation
 pipeline, per the Atlas track's preference for Atlas-native features.
 """
 
-import os
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter
 
+from app.mongo import collection
+
 router = APIRouter()
 
-_client: Any | None = None
-_checked = False
 
-
-def _collection() -> Any | None:
-    global _client, _checked
-    uri = os.environ.get("MONGODB_URI")
-    if not uri:
-        return None
-    if _client is None and not _checked:
-        _checked = True
-        try:
-            from pymongo import MongoClient
-
-            _client = MongoClient(uri, serverSelectionTimeoutMS=4000)
-            _client.admin.command("ping")
-        except Exception:
-            _client = None
-    return _client["innsight"]["memo_runs"] if _client else None
+def _runs_collection() -> Any | None:
+    return collection("memo_runs")
 
 
 def record_run(memo: dict[str, Any]) -> None:
-    coll = _collection()
+    coll = _runs_collection()
     if coll is None:
         return
     try:
@@ -60,7 +45,7 @@ def record_run(memo: dict[str, Any]) -> None:
 
 @router.get("/runs/summary")
 def runs_summary() -> dict[str, Any]:
-    coll = _collection()
+    coll = _runs_collection()
     if coll is None:
         return {"available": False, "note": "MONGODB_URI not configured"}
     pipeline = [

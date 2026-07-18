@@ -23,7 +23,7 @@ python3.11 -m venv .venv && .venv/bin/pip install -r api/requirements.txt
 cd web && npm install && npm run dev
 ```
 
-Copy `.env.example` values into `api/.env` and `web/.env.local`. Every integration is feature-flagged; the core loop runs with no keys at all.
+Put secrets in a single repo-root `.env` file (never commit it). Every integration is feature-flagged; the core loop runs with no keys at all.
 
 ## Demo
 

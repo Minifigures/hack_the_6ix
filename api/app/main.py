@@ -3,6 +3,10 @@ from dataclasses import asdict
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+# Load repo-root .env before any app modules read os.environ.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -22,8 +26,7 @@ from app.renders import router as renders_router
 from app.stay22 import router as stay22_router
 from app.storage import record_run
 from app.storage import router as storage_router
-
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+from app.users import router as users_router
 
 SITE_NAME = "45 The Esplanade"
 
@@ -40,6 +43,7 @@ app.add_middleware(
 app.include_router(stay22_router)
 app.include_router(renders_router)
 app.include_router(storage_router)
+app.include_router(users_router)
 
 
 class SimulateRequest(BaseModel):
@@ -65,6 +69,15 @@ def _scenario(name: str):
     if name not in SCENARIOS:
         raise HTTPException(status_code=422, detail=f"unknown scenario: {name}")
     return SCENARIOS[name]
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "name": "INNSIGHT API",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 @app.get("/health")

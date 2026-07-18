@@ -1,6 +1,6 @@
 """Generate the static fallback streetscape renders with Nano Banana.
 
-Run once GEMINI_API_KEY is in api/.env:
+Run once GEMINI_API_KEY is in the repo-root `.env`:
     .venv/bin/python api/scripts/gen_renders.py
 Writes web/public/render-a.png and render-b.png (the offline fallbacks).
 """
@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from app.renders import PROMPTS, _generate  # noqa: E402
 
@@ -22,7 +22,7 @@ OUT = Path(__file__).resolve().parents[2] / "web" / "public"
 def main() -> None:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        raise SystemExit("GEMINI_API_KEY missing in api/.env")
+        raise SystemExit("GEMINI_API_KEY missing in repo-root .env")
     for option in ("A", "B"):
         png = _generate(option, api_key)
         path = OUT / f"render-{option.lower()}.png"

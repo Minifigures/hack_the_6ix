@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { syncAuthUser } from "@/lib/api";
 import { FLAGS } from "@/lib/flags";
 import { MFA_KEY, STEP_UP_ACR } from "@/lib/auth0-shared";
 
@@ -30,27 +31,46 @@ export function useAuth(): AuthState & { startStepUp: () => void } {
     const verified = localStorage.getItem(MFA_KEY) === "1";
     setState((s) => ({ ...s, mfaVerified: verified }));
 
-    fetch("/auth/profile")
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4000);
+
+    fetch("/auth/profile", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((user: Record<string, unknown> | null) => {
+      .then(async (user: Record<string, unknown> | null) => {
         if (!user) {
           setState((s) => ({ ...s, loading: false }));
           return;
         }
         const roles = user[ROLES_CLAIM];
+        const role =
+          Array.isArray(roles) && typeof roles[0] === "string"
+            ? roles[0]
+            : null;
+        // Unlock UI immediately — Mongo sync must not delay Get Started.
         setState((s) => ({
           ...s,
           loading: false,
           loggedIn: true,
           name: typeof user.name === "string" ? user.name : null,
-          role:
-            Array.isArray(roles) && typeof roles[0] === "string"
-              ? roles[0]
-              : null,
+          role,
         }));
+
+        const sub = typeof user.sub === "string" ? user.sub : null;
+        if (sub) {
+          void syncAuthUser({
+            sub,
+            email: typeof user.email === "string" ? user.email : null,
+            name: typeof user.name === "string" ? user.name : null,
+            picture: typeof user.picture === "string" ? user.picture : null,
+            role,
+          }).catch(() => undefined);
+        }
       })
       .catch(() => {
         setState((s) => ({ ...s, loading: false }));
+      })
+      .finally(() => {
+        window.clearTimeout(timeout);
       });
 
     const onStorage = (e: StorageEvent) => {
@@ -59,7 +79,11 @@ export function useAuth(): AuthState & { startStepUp: () => void } {
       }
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   const startStepUp = useCallback(() => {

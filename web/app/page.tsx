@@ -111,13 +111,13 @@ export default function HomePage() {
   }, [auth.loading, auth.loggedIn, enterApp]);
 
   const handleGetStarted = useCallback(() => {
-    if (FLAGS.auth0 && auth.loading) return;
+    // Don't wait forever on a hung /auth/profile — open sign-in right away.
     if (FLAGS.auth0 && !auth.loggedIn) {
       setSignIn({ open: true, reason: "start" });
       return;
     }
     enterApp();
-  }, [auth.loading, auth.loggedIn, enterApp]);
+  }, [auth.loggedIn, enterApp]);
 
   const appendLog = useCallback((line: string) => {
     setLog((prev) => [...prev.slice(-9), line]);
@@ -251,10 +251,7 @@ export default function HomePage() {
   if (!entered) {
     return (
       <>
-        <Landing
-          onGetStarted={handleGetStarted}
-          busy={FLAGS.auth0 && auth.loading}
-        />
+        <Landing onGetStarted={handleGetStarted} />
         <SignInPrompt
           open={signIn.open}
           reason={signIn.reason}

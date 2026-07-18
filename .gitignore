@@ -13,7 +13,7 @@ __pycache__/
 .mypy_cache/
 *.egg-info/
 
-# env (template stays committable)
+# env — never commit secrets (single file: repo-root `.env`)
 .env
 .env.*
 
