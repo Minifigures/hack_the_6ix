@@ -50,4 +50,4 @@ Honesty first: this table says exactly what is real and what is a labelled simul
 
 ## Licences and data credits
 
-Map imagery: Esri World Imagery (attribution in-app). Benchmarks: US EIA CBECS, EC3/Building Transparency, OEB, ECCC, IESO (URLs inline in code and memo footnotes).
+Map imagery: City of Toronto 2025 orthophoto (contains information licensed under the Open Government Licence - Toronto) over Esri World Imagery (attribution in-app). Benchmarks: US EIA CBECS, EC3/Building Transparency, OEB, ECCC, IESO (URLs inline in code and memo footnotes).

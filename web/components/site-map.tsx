@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { SITE, SITE_POLYGON } from "@/lib/site";
 import type { Structure } from "@/lib/types";
 
-// Esri World Imagery raster tiles; attribution required, no key needed.
+// Primary imagery: City of Toronto 2025 orthophoto (8 cm/px, open licence,
+// no key). Esri World Imagery sits underneath as the outside-city fallback.
 const SATELLITE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
@@ -19,8 +20,21 @@ const SATELLITE_STYLE: maplibregl.StyleSpecification = {
       attribution:
         "Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community",
     },
+    "toronto-ortho": {
+      type: "raster",
+      tiles: [
+        "https://gis.toronto.ca/arcgis/rest/services/basemap/cot_ortho_2025_color_8cm/MapServer/tile/{z}/{y}/{x}",
+      ],
+      tileSize: 256,
+      maxzoom: 20,
+      attribution:
+        "Contains information licensed under the Open Government Licence - Toronto",
+    },
   },
-  layers: [{ id: "satellite", type: "raster", source: "satellite" }],
+  layers: [
+    { id: "satellite", type: "raster", source: "satellite" },
+    { id: "toronto-ortho", type: "raster", source: "toronto-ortho" },
+  ],
 };
 
 const STRUCTURE_COLOUR: Record<Structure, string> = {
@@ -78,7 +92,7 @@ export function SiteMap({ building }: SiteMapProps) {
     });
     mapRef.current = map;
 
-    map.addControl(new maplibregl.NavigationControl(), "top-left");
+    map.addControl(new maplibregl.NavigationControl(), "bottom-right");
 
     map.on("load", () => {
       map.addSource("site", { type: "geojson", data: SITE_POLYGON });
@@ -128,10 +142,70 @@ export function SiteMap({ building }: SiteMapProps) {
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded bg-white/90 px-2.5 py-1 text-[11px] font-medium text-text-strong shadow">
+      <MapToolbar />
+      <button
+        className="absolute right-3 top-12 z-10 grid h-8 w-8 place-items-center rounded bg-white shadow hover:bg-panel-muted"
+        title="Layers"
+      >
+        <LayersIcon />
+      </button>
+      <div className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 rounded bg-white/90 px-2.5 py-1 text-[11px] font-medium text-text-strong shadow">
         SITE: {SITE.name}
       </div>
     </div>
+  );
+}
+
+const TOOL_PATHS: { title: string; d: string }[] = [
+  { title: "Select", d: "M5 3l10 6-4.5 1L9 15 5 3Z" },
+  { title: "Line", d: "M4 14 14 4M4 14h0M14 4h0" },
+  { title: "Rectangle", d: "M4 5h10v8H4z" },
+  { title: "Draw", d: "M4 14l1-3 7-7 2 2-7 7-3 1Z" },
+  { title: "Measure", d: "M3 12l3-3 2 2 3-3 2 2 3-3M3 12l2 2 10-10" },
+];
+
+function MapToolbar() {
+  const [active, setActive] = useState(0);
+  return (
+    <div className="absolute left-[320px] top-12 z-10 flex items-center gap-0.5 rounded bg-white p-1 shadow">
+      {TOOL_PATHS.map((tool, i) => (
+        <button
+          key={tool.title}
+          title={tool.title}
+          onClick={() => setActive(i)}
+          className={`grid h-7 w-7 place-items-center rounded ${
+            active === i ? "bg-panel-muted" : "hover:bg-panel-muted"
+          }`}
+        >
+          <svg width="15" height="15" viewBox="0 0 18 18" aria-hidden="true">
+            <path
+              d={tool.d}
+              fill="none"
+              stroke="#3a4452"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      ))}
+      <span className="ml-1 rounded border border-panel-border px-2 py-0.5 text-[10.5px] text-text-soft">
+        Measures
+      </span>
+    </div>
+  );
+}
+
+function LayersIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        d="M9 2 16 6 9 10 2 6 9 2ZM3.5 9.5 9 12.7l5.5-3.2M3.5 12.5 9 15.7l5.5-3.2"
+        fill="none"
+        stroke="#3a4452"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

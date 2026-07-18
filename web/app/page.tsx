@@ -2,12 +2,25 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
-import { DesignPanel } from "@/components/design-panel";
+import { RailThumb } from "@/components/component-icons";
+import {
+  DesignPanel,
+  UI_TYPES,
+  type UiBuildingType,
+} from "@/components/design-panel";
 import { MemoView } from "@/components/memo-view";
+import { PhysicsLog } from "@/components/physics-log";
 import { ProfilesPanel } from "@/components/profiles-panel";
 import { StressView } from "@/components/stress-view";
 import { TopBar } from "@/components/top-bar";
-import { fetchComparison, fetchMemo } from "@/lib/api";
+import { fetchComparison, fetchMemo, type OptionOverrides } from "@/lib/api";
+import {
+  OPTION_PRESETS,
+  deriveHvac,
+  deriveStructure,
+  structureLog,
+  type BuildComponents,
+} from "@/lib/build-config";
 import { FLAGS } from "@/lib/flags";
 import type { BuildingType, Comparison, Memo, OptionKey } from "@/lib/types";
 
@@ -21,10 +34,16 @@ const VoiceController = dynamic(
   { ssr: false },
 );
 
-const FLOORS: Record<BuildingType, number> = {
+const ENGINE_TYPE: Record<UiBuildingType, BuildingType> = {
+  hotel: "boutique",
+  homestay: "homestay",
+  bnb: "homestay",
+};
+
+const UI_FLOORS: Record<UiBuildingType, number> = {
+  hotel: 8,
   homestay: 3,
-  boutique: 8,
-  tower: 30,
+  bnb: 3,
 };
 
 const SCENARIO = "heatwave_full";
@@ -34,9 +53,12 @@ type Overlay = "none" | "stress" | "memo" | "profiles";
 // Next.js App Router requires a default export for page files.
 export default function HomePage() {
   const [placed, setPlaced] = useState(false);
-  const [buildingType, setBuildingType] = useState<BuildingType>("boutique");
+  const [uiType, setUiType] = useState<UiBuildingType>("hotel");
   const [rooms, setRooms] = useState(40);
   const [option, setOption] = useState<OptionKey>("A");
+  const [componentsByOption, setComponentsByOption] = useState<
+    Record<OptionKey, BuildComponents>
+  >({ A: { ...OPTION_PRESETS.A }, B: { ...OPTION_PRESETS.B } });
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [memo, setMemo] = useState<Memo | null>(null);
   const [overlay, setOverlay] = useState<Overlay>("none");
@@ -45,7 +67,7 @@ export default function HomePage() {
   const runToken = useRef(0);
 
   const appendLog = useCallback((line: string) => {
-    setLog((prev) => [...prev.slice(-11), line]);
+    setLog((prev) => [...prev.slice(-9), line]);
   }, []);
 
   const invalidate = useCallback(() => {
@@ -61,11 +83,12 @@ export default function HomePage() {
   }, [appendLog]);
 
   const handleTypeChange = useCallback(
-    (type: BuildingType, defaultRooms: number) => {
-      setBuildingType(type);
-      setRooms(defaultRooms);
+    (type: UiBuildingType) => {
+      const preset = UI_TYPES.find((t) => t.key === type);
+      setUiType(type);
+      setRooms(preset?.rooms ?? 40);
       invalidate();
-      appendLog(`Type set: ${type}, ${defaultRooms} rooms.`);
+      appendLog(`Type set: ${preset?.label ?? type}, ${preset?.rooms ?? 40} rooms.`);
     },
     [appendLog, invalidate],
   );
@@ -83,20 +106,40 @@ export default function HomePage() {
       setOption(key);
       appendLog(
         key === "A"
-          ? "Option A active: concrete frame, central gas plant."
+          ? "Option A active: concrete-mass hybrid, central gas plant."
           : "Option B active: mass timber frame, heat pumps.",
       );
     },
     [appendLog],
   );
 
+  const handleComponentChange = useCallback(
+    (field: keyof BuildComponents, value: string) => {
+      setComponentsByOption((prev) => ({
+        ...prev,
+        [option]: { ...prev[option], [field]: value },
+      }));
+      invalidate();
+    },
+    [invalidate, option],
+  );
+
   const handleRunStressTest = useCallback(async () => {
     const token = ++runToken.current;
     setRunning(true);
     appendLog("Stress test: fully booked heat-wave weekend, 36.2 C peak...");
+    const engineType = ENGINE_TYPE[uiType];
+    const overrides: OptionOverrides = {
+      structure_a: deriveStructure(componentsByOption.A),
+      hvac_a: deriveHvac(componentsByOption.A),
+      structure_b: deriveStructure(componentsByOption.B),
+      hvac_b: deriveHvac(componentsByOption.B),
+    };
     try {
-      const comparisonPromise = fetchComparison(buildingType, rooms, SCENARIO);
-      const memoPromise = fetchMemo(buildingType, rooms, SCENARIO);
+      const comparisonPromise = fetchComparison(
+        engineType, rooms, SCENARIO, overrides,
+      );
+      const memoPromise = fetchMemo(engineType, rooms, SCENARIO, overrides);
       const comparisonResult = await comparisonPromise;
       if (runToken.current !== token) return;
       setComparison(comparisonResult);
@@ -115,7 +158,7 @@ export default function HomePage() {
     } finally {
       if (runToken.current === token) setRunning(false);
     }
-  }, [appendLog, buildingType, rooms]);
+  }, [appendLog, componentsByOption, rooms, uiType]);
 
   const explainMemo = useCallback(() => {
     if (!memo) {
@@ -126,23 +169,27 @@ export default function HomePage() {
 
   const handleVoiceType = useCallback(
     (type: BuildingType) => {
-      const defaults: Record<BuildingType, number> = {
-        homestay: 6,
-        boutique: 40,
-        tower: 200,
-      };
       setPlaced(true);
-      handleTypeChange(type, defaults[type]);
+      handleTypeChange(type === "homestay" ? "homestay" : "hotel");
     },
     [handleTypeChange],
   );
 
+  const activeComponents = componentsByOption[option];
   const building = placed
     ? {
-        structure: option === "A" ? ("concrete" as const) : ("mass_timber" as const),
-        floors: FLOORS[buildingType],
+        structure: deriveStructure(activeComponents),
+        floors: UI_FLOORS[uiType],
       }
     : null;
+
+  const optionLabel =
+    option === "A"
+      ? "Option A: Concrete + Central HVAC"
+      : "Option B: Mass Timber + Heat Pumps";
+  const logEntries = placed
+    ? structureLog(activeComponents, UI_FLOORS[uiType], optionLabel)
+    : [];
 
   return (
     <div className="flex h-full flex-col">
@@ -157,23 +204,33 @@ export default function HomePage() {
         />
       )}
       <div className="relative flex min-h-0 flex-1">
-        <DesignPanel
-          placed={placed}
-          buildingType={buildingType}
-          rooms={rooms}
-          option={option}
-          running={running}
-          onPlace={handlePlace}
-          onTypeChange={handleTypeChange}
-          onRoomsChange={handleRoomsChange}
-          onOptionChange={handleOptionChange}
-          onRunStressTest={handleRunStressTest}
-        />
+        <IconRail placed={placed} />
 
         <main className="relative min-w-0 flex-1">
+          {placed && (
+            <div className="absolute left-0 right-0 top-0 z-10 border-b border-panel-border bg-panel/95 px-4 py-1.5">
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider text-text-soft">
+                Building Assembler - Configure Your Hybrid Structure
+              </p>
+            </div>
+          )}
           <SiteMap building={building} />
+          <DesignPanel
+            placed={placed}
+            uiType={uiType}
+            rooms={rooms}
+            option={option}
+            components={activeComponents}
+            running={running}
+            onPlace={handlePlace}
+            onTypeChange={handleTypeChange}
+            onRoomsChange={handleRoomsChange}
+            onOptionChange={handleOptionChange}
+            onComponentChange={handleComponentChange}
+            onRunStressTest={handleRunStressTest}
+          />
           {(overlay === "stress" || overlay === "memo") && comparison && (
-            <div className="absolute inset-0 z-10">
+            <div className="absolute inset-0 z-20">
               <StressView
                 comparison={comparison}
                 active={option}
@@ -188,11 +245,11 @@ export default function HomePage() {
           )}
           {overlay === "profiles" && (
             <ProfilesPanel
-              buildingType={buildingType}
+              buildingType={ENGINE_TYPE[uiType]}
               onClose={() => setOverlay("none")}
             />
           )}
-          {overlay !== "none" && overlay !== "profiles" && (
+          {(overlay === "stress" || overlay === "memo") && (
             <button
               onClick={() => setOverlay("none")}
               className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full border border-white/25 bg-ink/90 px-4 py-1.5 text-[12px] font-medium text-white hover:bg-ink"
@@ -202,40 +259,55 @@ export default function HomePage() {
           )}
         </main>
 
-        <aside className="flex w-72 shrink-0 flex-col border-l border-panel-border bg-panel">
-          <div className="border-b border-panel-border px-4 py-3">
-            <h2 className="text-[15px] font-semibold">
-              {placed ? "Engine Log" : "Awaiting Building Design Input"}
-            </h2>
-          </div>
-          {placed ? (
-            <div className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
-              {log.map((line, i) => (
-                <p
-                  key={i}
-                  className="border-b border-panel-border pb-2 text-[12px] leading-snug text-text-strong"
-                >
-                  {line}
-                </p>
-              ))}
+        {placed ? (
+          <PhysicsLog entries={logEntries} runtimeLines={log} />
+        ) : (
+          <aside className="flex w-72 shrink-0 flex-col border-l border-panel-border bg-panel">
+            <div className="border-b border-panel-border px-4 py-3">
+              <h2 className="text-[15px] font-semibold">
+                Awaiting Building Design Input
+              </h2>
             </div>
-          ) : (
             <div className="flex flex-1 items-center justify-center px-4 text-center text-[13px] text-text-soft">
-              Place a building on the site to begin.
+              Awaiting Building Design Input
             </div>
-          )}
-          <div className="border-t border-panel-border p-3">
-            <button
-              onClick={() =>
-                setOverlay(overlay === "profiles" ? "none" : "profiles")
-              }
-              className="w-full rounded border border-panel-border px-3 py-2 text-[12px] font-semibold hover:bg-panel-muted"
-            >
-              Energy Load Profiles
-            </button>
-          </div>
-        </aside>
+          </aside>
+        )}
+
+        <div className="absolute bottom-3 right-[19.5rem] z-10">
+          <button
+            onClick={() =>
+              setOverlay(overlay === "profiles" ? "none" : "profiles")
+            }
+            className="rounded border border-panel-border bg-panel px-3 py-2 text-[12px] font-semibold shadow hover:bg-panel-muted"
+          >
+            Energy Load Profiles
+          </button>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function IconRail({ placed }: { placed: boolean }) {
+  return (
+    <div className="relative z-10 flex w-12 shrink-0 flex-col items-center gap-2 border-r border-panel-border bg-panel py-3">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span
+          key={i}
+          className="grid h-9 w-9 place-items-center rounded border border-panel-border bg-panel-muted"
+        >
+          <RailThumb index={i} />
+        </span>
+      ))}
+      {placed && (
+        <span
+          className="mt-3 text-[9px] font-medium uppercase tracking-widest text-text-soft"
+          style={{ writingMode: "vertical-rl" }}
+        >
+          Updater metrics updating live
+        </span>
+      )}
     </div>
   );
 }

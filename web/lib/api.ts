@@ -1,5 +1,19 @@
 import { API_BASE } from "@/lib/flags";
-import type { BuildingType, Comparison, LoadProfileInfo, Memo } from "@/lib/types";
+import type {
+  BuildingType,
+  Comparison,
+  Hvac,
+  LoadProfileInfo,
+  Memo,
+  Structure,
+} from "@/lib/types";
+
+export interface OptionOverrides {
+  structure_a: Structure;
+  hvac_a: Hvac;
+  structure_b: Structure;
+  hvac_b: Hvac;
+}
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -21,11 +35,13 @@ export function fetchComparison(
   buildingType: BuildingType,
   rooms: number,
   scenario: string,
+  overrides?: OptionOverrides,
 ): Promise<Comparison> {
   return post<Comparison>("/compare", {
     building_type: buildingType,
     rooms,
     scenario,
+    ...overrides,
   });
 }
 
@@ -33,8 +49,14 @@ export function fetchMemo(
   buildingType: BuildingType,
   rooms: number,
   scenario: string,
+  overrides?: OptionOverrides,
 ): Promise<Memo> {
-  return post<Memo>("/memo", { building_type: buildingType, rooms, scenario });
+  return post<Memo>("/memo", {
+    building_type: buildingType,
+    rooms,
+    scenario,
+    ...overrides,
+  });
 }
 
 export function fetchProfiles(): Promise<Record<string, LoadProfileInfo>> {
