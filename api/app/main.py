@@ -20,6 +20,8 @@ from innsight_model.sim import (
 
 from app.renders import router as renders_router
 from app.stay22 import router as stay22_router
+from app.storage import record_run
+from app.storage import router as storage_router
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
@@ -37,6 +39,7 @@ app.add_middleware(
 
 app.include_router(stay22_router)
 app.include_router(renders_router)
+app.include_router(storage_router)
 
 
 class SimulateRequest(BaseModel):
@@ -128,6 +131,7 @@ def memo(req: CompareRequest) -> dict[str, object]:
     memo_data["narrative"] = generate_narrative(
         memo_data, os.environ.get("GEMINI_API_KEY") or None
     )
+    record_run(memo_data)
     return memo_data
 
 
