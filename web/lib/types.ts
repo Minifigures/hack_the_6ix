@@ -229,6 +229,13 @@ export interface ClimateMeta {
   lat?: number | null;
   lng?: number | null;
   peaks_c?: Record<string, number>;
+  fallback?: boolean;
+  heatwave_peak_c?: number;
+  deep_cold_floor_c?: number;
+  picks?: Record<
+    string,
+    { dates?: string[]; peak_c?: number; floor_c?: number }
+  >;
 }
 
 export interface YearBriefing {

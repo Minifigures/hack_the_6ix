@@ -364,7 +364,7 @@ export default function HomePage() {
     }
     const token = ++runToken.current;
     setRunning(true);
-    appendLog("Year pack: 5 scenarios…");
+    appendLog("Year pack: pulling ERA5 extremes for this site…");
     const engineType = ENGINE_TYPE[uiType];
     const overrides: OptionOverrides = {
       structure_a: deriveStructure(componentsByOption.A),
@@ -405,6 +405,18 @@ export default function HomePage() {
       setBriefingFallbackReason(year.fallback_reason ?? null);
       setMemo(year.memo);
       setOverlay("stress");
+      const climate = year.climate;
+      if (climate?.heatwave_peak_c != null) {
+        appendLog(
+          climate.fallback
+            ? `Climate fallback: curated pack (peak ${climate.heatwave_peak_c}°C).`
+            : `ERA5 site climate: heat peak ${climate.heatwave_peak_c}°C` +
+                (climate.deep_cold_floor_c != null
+                  ? `, cold floor ${climate.deep_cold_floor_c}°C`
+                  : "") +
+                ".",
+        );
+      }
       appendLog(
         `Agents… (${year.generator}): ${Object.keys(year.briefs).length} briefs + year boss.` +
           (year.fallback_reason ? ` Fallback: ${year.fallback_reason}` : ""),

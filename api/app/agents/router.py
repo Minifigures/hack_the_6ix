@@ -20,8 +20,8 @@ class BriefingRequest(BaseModel):
     hvac_b: str = Field(default="heat_pump", pattern="^(central_gas|heat_pump)$")
     include_agents: list[str] | None = None
     auth0_sub: str | None = None
-    lat: float | None = None
-    lng: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
 
 
 class YearBriefingRequest(BaseModel):
@@ -33,8 +33,8 @@ class YearBriefingRequest(BaseModel):
     hvac_b: str = Field(default="heat_pump", pattern="^(central_gas|heat_pump)$")
     include_agents: list[str] | None = None
     auth0_sub: str | None = None
-    lat: float | None = None
-    lng: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
     site_name: str | None = None
 
 
