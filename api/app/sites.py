@@ -15,22 +15,27 @@ from fastapi import APIRouter, Query
 
 router = APIRouter(tags=["sites"])
 
+# Endpoint order and timeouts follow live testing (Jul 2026): the fr instance
+# is fastest and most consistent but filters User-Agents (app name + real
+# contact passes); overpass-api.de is the slower, rate-limited fallback.
 OVERPASS_URLS = (
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
+    ("https://overpass.openstreetmap.fr/api/interpreter", 8.0),
+    ("https://overpass-api.de/api/interpreter", 15.0),
 )
-USER_AGENT = "INNSIGHT/0.1 (Hack the 6ix; empty-site finder)"
+USER_AGENT = "INNSIGHT/0.1 (contact minifiguresgt@gmail.com)"
 
-_LANDUSE_QUERY = """
-[out:json][timeout:18];
+# One round trip returns candidate parcels AND building footprints (~440 KB,
+# ~2 s live-tested downtown), so parcel filtering and the 3D context layer
+# share a single Overpass call.
+_COMBINED_QUERY = """
+[out:json][timeout:20];
 (
-  way["landuse"="brownfield"](around:{radius},{lat},{lng});
-  way["landuse"="greenfield"](around:{radius},{lat},{lng});
-  way["landuse"="construction"](around:{radius},{lat},{lng});
-  way["landuse"="vacant"](around:{radius},{lat},{lng});
   way["amenity"="parking"]["parking"="surface"](around:{radius},{lat},{lng});
-);
-out geom;
+  way["landuse"~"^(brownfield|greenfield|construction|vacant)$"](around:{radius},{lat},{lng});
+)->.parcels;
+way["building"](around:{radius},{lat},{lng})->.buildings;
+.parcels out geom;
+.buildings out geom;
 """
 
 _LABELS = "ABCDE"
@@ -98,6 +103,24 @@ def _curated_sites(lat: float, lng: float) -> list[dict[str, Any]] | None:
 
 # Last good Overpass result per rounded location; venue wifi insurance only.
 _cache: dict[tuple[float, float], list[dict[str, Any]]] = {}
+
+_context_cache: dict[tuple[float, float], dict[str, Any]] = {}
+
+
+def _building_height(tags: dict[str, Any]) -> float:
+    raw_height = tags.get("height")
+    if raw_height:
+        try:
+            return max(3.0, min(140.0, float(str(raw_height).split()[0])))
+        except ValueError:
+            pass
+    levels = tags.get("building:levels")
+    if levels:
+        try:
+            return max(3.0, min(140.0, float(levels) * 3.2))
+        except ValueError:
+            pass
+    return 10.0
 
 
 def _ring_from_geometry(geom: list[dict[str, float]]) -> list[list[float]] | None:
@@ -170,7 +193,51 @@ def _fallback_sites(lat: float, lng: float, limit: int) -> list[dict[str, Any]]:
     return out
 
 
-def _elements_to_sites(elements: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+def _point_in_ring(lng: float, lat: float, ring: list[list[float]]) -> bool:
+    inside = False
+    j = len(ring) - 2
+    for i in range(len(ring) - 1):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if (yi > lat) != (yj > lat) and lng < (xj - xi) * (lat - yi) / (
+            (yj - yi) or 1e-12
+        ) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def _intersects_building(
+    ring: list[list[float]], building_rings: list[list[list[float]]]
+) -> bool:
+    """Real polygon intersection where shapely is available; bounding boxes
+    falsely reject nearly everything downtown (live-tested)."""
+    try:
+        from shapely.geometry import Polygon
+
+        candidate = Polygon(ring)
+        if not candidate.is_valid:
+            candidate = candidate.buffer(0)
+        for other in building_rings:
+            try:
+                poly = Polygon(other)
+                if not poly.is_valid:
+                    poly = poly.buffer(0)
+                if candidate.intersects(poly):
+                    return True
+            except Exception:
+                continue
+        return False
+    except ImportError:
+        clng, clat = _centroid(ring)
+        return any(_point_in_ring(clng, clat, b) for b in building_rings)
+
+
+def _elements_to_sites(
+    elements: list[dict[str, Any]],
+    limit: int,
+    building_rings: list[list[list[float]]] | None = None,
+) -> list[dict[str, Any]]:
     scored: list[tuple[float, dict[str, Any]]] = []
     for el in elements:
         geom = el.get("geometry")
@@ -183,7 +250,13 @@ def _elements_to_sites(elements: list[dict[str, Any]], limit: int) -> list[dict[
         if area < 1e-9 or area > 8e-5:
             continue
         tags = el.get("tags") or {}
+        if "building" in tags:
+            continue
+        if building_rings and _intersects_building(ring, building_rings):
+            continue
         kind = tags.get("landuse") or tags.get("natural") or tags.get("amenity") or "open"
+        if kind == "construction":
+            kind = "construction, already committed"
         clng, clat = _centroid(ring)
         scored.append((area, {"kind": kind, "lng": clng, "lat": clat, "ring": ring}))
 
@@ -208,25 +281,81 @@ def _elements_to_sites(elements: list[dict[str, Any]], limit: int) -> list[dict[
     return out
 
 
-async def _query_overpass(lat: float, lng: float, radius: int) -> list[dict[str, Any]]:
-    query = _LANDUSE_QUERY.format(lat=lat, lng=lng, radius=radius)
+async def _query_overpass(
+    lat: float, lng: float, radius: int
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """One combined round trip: (parcel elements, building elements)."""
+    query = _COMBINED_QUERY.format(lat=lat, lng=lng, radius=radius)
     last_err: Exception | None = None
-    async with httpx.AsyncClient(timeout=22.0) as client:
-        for url in OVERPASS_URLS:
-            try:
+    for url, timeout in OVERPASS_URLS:
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 res = await client.post(
                     url,
                     data={"data": query},
                     headers={"User-Agent": USER_AGENT},
                 )
-                if res.status_code == 200:
-                    return list((res.json() or {}).get("elements") or [])
-            except Exception as exc:  # noqa: BLE001
-                last_err = exc
+            if res.status_code != 200:
                 continue
+            elements = list((res.json() or {}).get("elements") or [])
+            parcels = [e for e in elements if "building" not in (e.get("tags") or {})]
+            buildings = [e for e in elements if "building" in (e.get("tags") or {})]
+            return parcels, buildings
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+            continue
     if last_err:
         raise last_err
-    return []
+    return [], []
+
+
+def _buildings_to_features(
+    buildings: list[dict[str, Any]], limit: int = 400
+) -> list[dict[str, Any]]:
+    features: list[dict[str, Any]] = []
+    for el in buildings[:limit]:
+        ring = _ring_from_geometry(el.get("geometry") or [])
+        if not ring:
+            continue
+        features.append(
+            {
+                "type": "Feature",
+                "properties": {"height": _building_height(el.get("tags") or {})},
+                "geometry": {"type": "Polygon", "coordinates": [ring]},
+            }
+        )
+    return features
+
+
+@router.get("/sites/context")
+async def context_buildings(
+    lat: float = Query(..., ge=-90, le=90),
+    lng: float = Query(..., ge=-180, le=180),
+    radius: int = Query(450, ge=100, le=900),
+    limit: int = Query(400, ge=10, le=800),
+) -> dict[str, Any]:
+    """Neighbouring OSM building footprints with heights, for the 3D context
+    layer. Empty collection on failure; the map simply renders without it."""
+    cache_key = (round(lat, 3), round(lng, 3))
+    cached = _context_cache.get(cache_key)
+    if cached:
+        return cached
+
+    features: list[dict[str, Any]] = []
+    try:
+        _, buildings = await _query_overpass(lat, lng, radius)
+        features = _buildings_to_features(buildings, limit)
+    except Exception:
+        features = []
+
+    payload = {
+        "type": "FeatureCollection",
+        "features": features,
+        "source": "openstreetmap" if features else "unavailable",
+    }
+    if features:
+        _context_cache[cache_key] = payload
+    return payload
 
 
 @router.get("/sites/empty")
@@ -242,8 +371,20 @@ async def empty_sites(
     )
     cache_key = (round(lat, 3), round(lng, 3))
     try:
-        elements = await _query_overpass(lat, lng, radius)
-        sites = _elements_to_sites(elements, limit)
+        parcels, buildings = await _query_overpass(lat, lng, radius)
+        building_rings = [
+            r
+            for el in buildings
+            if (r := _ring_from_geometry(el.get("geometry") or []))
+        ]
+        sites = _elements_to_sites(parcels, limit, building_rings)
+        if buildings:
+            # Same round trip feeds the 3D context layer.
+            _context_cache[cache_key] = {
+                "type": "FeatureCollection",
+                "features": _buildings_to_features(buildings),
+                "source": "openstreetmap",
+            }
         if sites:
             _cache[cache_key] = sites
             return {

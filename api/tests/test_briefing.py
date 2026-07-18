@@ -61,12 +61,17 @@ def test_fallback_briefing_has_all_specialists_and_boss() -> None:
                 new=AsyncMock(return_value=grid_stub),
             ),
             patch(
-                "app.agents.orchestrator.fetch_location_scenarios",
+                "app.agents.orchestrator.fetch_location_year_scenarios",
                 new=AsyncMock(
-                    return_value=(
-                        dict(SCENARIOS),
-                        {"source": "benchmark", "peaks_c": {}},
-                    )
+                    return_value={
+                        "scenarios": dict(SCENARIOS),
+                        "meta": {
+                            "source": "Curated Toronto demo pack (test)",
+                            "fallback": True,
+                            "heatwave_peak_c": 36.2,
+                            "deep_cold_floor_c": -22.0,
+                        },
+                    }
                 ),
             ),
         ):
@@ -123,12 +128,17 @@ def test_include_agents_subset() -> None:
                 new=AsyncMock(return_value=grid_stub),
             ),
             patch(
-                "app.agents.orchestrator.fetch_location_scenarios",
+                "app.agents.orchestrator.fetch_location_year_scenarios",
                 new=AsyncMock(
-                    return_value=(
-                        dict(SCENARIOS),
-                        {"source": "benchmark", "peaks_c": {}},
-                    )
+                    return_value={
+                        "scenarios": dict(SCENARIOS),
+                        "meta": {
+                            "source": "Curated Toronto demo pack (test)",
+                            "fallback": True,
+                            "heatwave_peak_c": 36.2,
+                            "deep_cold_floor_c": -22.0,
+                        },
+                    }
                 ),
             ),
         ):
@@ -173,16 +183,12 @@ def test_year_pack_fallback() -> None:
 
     async def _run():
         climate_meta = {
-            "source": "benchmark",
-            "provider": "toronto_fixed_curves",
-            "note": "test stub",
-            "url": None,
-            "archive_year": None,
+            "source": "Curated Toronto demo pack (test)",
+            "fallback": True,
+            "heatwave_peak_c": 36.2,
+            "deep_cold_floor_c": -22.0,
             "lat": 43.65,
             "lng": -79.38,
-            "peaks_c": {
-                k: round(max(SCENARIOS[k].hourly_temps_c), 1) for k in SCENARIOS
-            },
         }
         with (
             patch(
@@ -194,8 +200,13 @@ def test_year_pack_fallback() -> None:
                 new=AsyncMock(return_value=grid_stub),
             ),
             patch(
-                "app.agents.orchestrator.fetch_location_scenarios",
-                new=AsyncMock(return_value=(dict(SCENARIOS), climate_meta)),
+                "app.agents.orchestrator.fetch_location_year_scenarios",
+                new=AsyncMock(
+                    return_value={
+                        "scenarios": dict(SCENARIOS),
+                        "meta": climate_meta,
+                    }
+                ),
             ),
         ):
             return await run_year_briefing(

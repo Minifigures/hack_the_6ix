@@ -9,3 +9,4 @@ pytest
 google-genai
 pymongo
 -e ./model
+shapely
