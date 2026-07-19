@@ -12,7 +12,7 @@ export interface CandidateSite {
   polygon: GeoJSON.Feature<GeoJSON.Polygon>;
 }
 
-const LABELS = ["A", "B", "C", "D", "E"] as const;
+const LABELS = ["A", "B", "C", "D", "E", "F", "G", "H"] as const;
 const M2_PER_ACRE = 4046.8564224;
 
 /** Approx acres from a lon/lat polygon (equirectangular). */

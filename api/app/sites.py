@@ -38,21 +38,25 @@ way["building"](around:{radius},{lat},{lng})->.buildings;
 .buildings out geom;
 """
 
-_LABELS = "ABCDE"
+# Must cover Query(limit) max (8). A 5-letter string caused IndexError once
+# Overpass returned 6+ parcels, silently falling through to curated pads.
+_LABELS = "ABCDEFGH"
 
 # Curated real parcels near the demo site, corners traced from the City of
 # Toronto 2025 orthophoto (8 cm). Used when Overpass is unreachable so the
 # venue demo never shows pads on rooftops.
 _CURATED_TORONTO: list[dict[str, Any]] = [
     {
+        # 55 Lake Shore Blvd E block (Freeland–Cooper), south of Lake Shore /
+        # rail corridor — full vacant pad visible on 2025 ortho (not a NW scrap).
         "label": "Gravel lot south of rail corridor (traced from 2025 ortho)",
         "kind": "traced",
         "ring": [
-            [-79.37360, 43.64456],
-            [-79.37280, 43.64458],
-            [-79.37277, 43.64418],
-            [-79.37357, 43.64415],
-            [-79.37360, 43.64456],
+            [-79.37388, 43.64458],
+            [-79.37232, 43.64490],
+            [-79.37218, 43.64340],
+            [-79.37372, 43.64312],
+            [-79.37388, 43.64458],
         ],
     },
     {
@@ -115,8 +119,9 @@ def _building_height(tags: dict[str, Any]) -> float:
     raw_height = tags.get("height")
     if raw_height:
         try:
-            return max(3.0, min(140.0, float(str(raw_height).split()[0])))
-        except ValueError:
+            token = str(raw_height).split()[0]
+            return max(3.0, min(140.0, float(token)))
+        except (ValueError, IndexError):
             pass
     levels = tags.get("building:levels")
     if levels:
@@ -299,7 +304,7 @@ def _elements_to_sites(
 
     scored.sort(key=lambda t: t[0], reverse=True)
     out: list[dict[str, Any]] = []
-    for i, (_, raw) in enumerate(scored[:limit]):
+    for i, (_, raw) in enumerate(scored[: min(limit, len(_LABELS))]):
         label = f"Empty site {_LABELS[i]} ({raw['kind']})"
         site_id = f"empty-{_LABELS[i]}"
         ring = raw["ring"]
