@@ -347,6 +347,20 @@ export default function HomePage() {
     [appendLog, invalidate],
   );
 
+  // Panning somewhere new refreshes the green plots for that view without
+  // stealing the camera or the current selection.
+  const viewportBusyRef = useRef(false);
+  const handleViewportChange = useCallback(
+    (lat: number, lng: number, zoom: number) => {
+      if (viewportBusyRef.current) return;
+      viewportBusyRef.current = true;
+      void applyEmptySites("this view", lng, lat, zoom, false).finally(() => {
+        viewportBusyRef.current = false;
+      });
+    },
+    [applyEmptySites],
+  );
+
   // Load OSM empty lands. Jump to the first green parcel unless we already
   // restored a saved selection from this tab.
   useEffect(() => {
@@ -781,6 +795,7 @@ export default function HomePage() {
             selectedCandidateId={selectedCandidateId}
             sitesNote={sitesNote}
             onSelectCandidate={handleSelectCandidate}
+            onViewportChange={handleViewportChange}
           />
           {(overlay === "stress" || overlay === "memo") && comparison && (
             <div className="absolute inset-0 z-20">

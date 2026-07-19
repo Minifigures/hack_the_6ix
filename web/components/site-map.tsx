@@ -64,6 +64,8 @@ interface SiteMapProps {
   selectedCandidateId: string | null;
   sitesNote?: string;
   onSelectCandidate: (site: CandidateSite) => void;
+  /** Fired when the user pans somewhere new, so plots refresh for that view. */
+  onViewportChange?: (lat: number, lng: number, zoom: number) => void;
 }
 
 type ModularLayer = ModularBuildingLayer;
@@ -75,6 +77,7 @@ export function SiteMap({
   selectedCandidateId,
   sitesNote,
   onSelectCandidate,
+  onViewportChange,
 }: SiteMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -84,10 +87,13 @@ export function SiteMap({
   const activeSiteRef = useRef(activeSite);
   const candidatesRef = useRef(candidates);
   const onSelectRef = useRef(onSelectCandidate);
+  const onViewportRef = useRef(onViewportChange);
+  const lastFetchRef = useRef({ lat: activeSite.lat, lng: activeSite.lng });
   buildingRef.current = building;
   activeSiteRef.current = activeSite;
   candidatesRef.current = candidates;
   onSelectRef.current = onSelectCandidate;
+  onViewportRef.current = onViewportChange;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -136,6 +142,21 @@ export function SiteMap({
       });
       void loadContextBuildings(map, activeSite.lat, activeSite.lng);
       void loadCompetitorPins(map, activeSite.lat, activeSite.lng);
+
+      // Context buildings, pins, and (via the callback) green plots follow
+      // wherever the user pans — not only searched or default locations.
+      map.on("moveend", () => {
+        if (map.getZoom() < 13) return;
+        const c = map.getCenter();
+        const last = lastFetchRef.current;
+        const dx = (c.lng - last.lng) * 111 * Math.cos((c.lat * Math.PI) / 180);
+        const dy = (c.lat - last.lat) * 111;
+        if (Math.hypot(dx, dy) < 0.4) return;
+        lastFetchRef.current = { lat: c.lat, lng: c.lng };
+        void loadContextBuildings(map, c.lat, c.lng);
+        void loadCompetitorPins(map, c.lat, c.lng);
+        onViewportRef.current?.(c.lat, c.lng, map.getZoom());
+      });
 
       map.addLayer({
         id: "candidates-fill",
@@ -223,6 +244,9 @@ export function SiteMap({
         geometry: { type: "Polygon", coordinates: [] },
       });
     }
+    lastFetchRef.current = { lat: activeSite.lat, lng: activeSite.lng };
+    void loadContextBuildings(map, activeSite.lat, activeSite.lng);
+    void loadCompetitorPins(map, activeSite.lat, activeSite.lng);
   }, [activeSite]);
 
   useEffect(() => {
@@ -273,19 +297,26 @@ export function SiteMap({
   );
 }
 
+let pinMarkers: maplibregl.Marker[] = [];
+let pinFetchSeq = 0;
+
 async function loadCompetitorPins(
   map: maplibregl.Map,
   lat: number,
   lng: number,
 ) {
   if (process.env.NEXT_PUBLIC_FLAG_STAY22 !== "true") return;
+  const seq = ++pinFetchSeq;
   try {
     const base = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
     const res = await fetch(`${base}/stay22/market?lat=${lat}&lng=${lng}`);
-    if (!res.ok) return;
+    if (!res.ok || seq !== pinFetchSeq) return;
     const data = (await res.json()) as {
       target?: { pins?: { name: string; lat: number; lng: number; rate: number | null; stars?: number | null }[] };
     };
+    if (seq !== pinFetchSeq) return;
+    pinMarkers.forEach((m) => m.remove());
+    pinMarkers = [];
     for (const pin of data.target?.pins ?? []) {
       if (pin.rate == null) continue;
       const el = document.createElement("div");
@@ -293,27 +324,32 @@ async function loadCompetitorPins(
         "rounded-full border border-white/60 bg-[#123346]/90 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow";
       el.textContent = `$${pin.rate}${pin.stars ? ` · ${pin.stars}★` : ""}`;
       el.title = `${pin.name}: live rate via Stay22 (Booking, Expedia, Hotels.com, Vrbo)`;
-      new maplibregl.Marker({ element: el, anchor: "bottom" })
+      const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([pin.lng, pin.lat])
         .addTo(map);
+      pinMarkers.push(marker);
     }
   } catch {
     // Live competitive layer is optional; the map is complete without it.
   }
 }
 
+let contextFetchSeq = 0;
+
 async function loadContextBuildings(
   map: maplibregl.Map,
   lat: number,
   lng: number,
 ) {
+  const seq = ++contextFetchSeq;
   try {
     const base = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
     const res = await fetch(
       `${base}/sites/context?lat=${lat}&lng=${lng}&radius=450`,
     );
-    if (!res.ok) return;
+    if (!res.ok || seq !== contextFetchSeq) return;
     const data = (await res.json()) as GeoJSON.FeatureCollection;
+    if (seq !== contextFetchSeq) return;
     const src = map.getSource(
       "context-buildings",
     ) as maplibregl.GeoJSONSource | undefined;
