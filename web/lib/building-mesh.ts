@@ -272,12 +272,23 @@ export function buildModularBuilding(
   const roomsPerStorey =
     spec.rooms && spec.floors > 0 ? spec.rooms / spec.floors : null;
 
-  // Floor plate vs room density: sparse programs open toward the ghost
-  // envelope (larger suites); denser programs pull the plate in. Ghost stays
-  // the full allowed envelope either way.
+  // Structure occupies only the parcel share the room program needs
+  // (about 60 m2 gross per key); the ghost stays the full allowed envelope.
+  const ground = rings.find((r) => r.fromLevel === 0) ?? rings[0];
+  let parcelArea = 0;
+  if (ground) {
+    const gp = ground.points;
+    for (let i = 0; i < gp.length; i++) {
+      const j = (i + 1) % gp.length;
+      parcelArea += gp[i].x * gp[j].z - gp[j].x * gp[i].z;
+    }
+    parcelArea = Math.abs(parcelArea) / 2;
+  }
+  const neededArea =
+    roomsPerStorey && roomsPerStorey > 0 ? roomsPerStorey * 60 : null;
   const fit =
-    roomsPerStorey && roomsPerStorey > 0
-      ? Math.min(0.98, Math.max(0.1, 2.2 / (roomsPerStorey + 0.5)))
+    neededArea && parcelArea > 50
+      ? Math.min(0.98, Math.max(0.06, Math.sqrt(neededArea / parcelArea)))
       : 1;
 
   for (const ring of rings) {

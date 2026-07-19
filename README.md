@@ -14,6 +14,42 @@ Built at Hack the 6ix 2026.
 - `api/` FastAPI (Python 3.11+)
 - `model/` benchmark library and deterministic stress-test engine, pytest-covered
 
+## Architecture
+
+A three-package monorepo with a hard line between a deterministic simulation core and everything that touches the network, so the numbers in the memo never depend on a live service being up.
+
+- **`model/`** is a pure, dependency-light Python library. Every benchmark constant is a sourced record, and the stress test is a set of pure functions (no randomness, no wall clock) mapping `(BuildingConfig, StressScenario)` to an `OptionResult`. That is what makes results byte-for-byte reproducible, and it lets a pytest lock the homestay-to-hotel recommendation flip.
+- **`api/`** is a FastAPI service that wraps the model, orchestrates the multi-agent briefing (six specialists in parallel, then a boss synthesis), runs the five-scenario year-pack stress in parallel under a hard time budget, and fronts every live data source behind a deterministic or benchmark fallback.
+- **`web/`** is a Next.js client (App Router, TypeScript). A MapLibre GL satellite assembler with a custom WebGL layer renders a parametric Three.js building in true geographic metre-space on the real parcel polygon. It holds the UI state and is a thin front end over the API.
+
+Cross-cutting: every integration (Auth0, Stay22, Gemini, ElevenLabs, Electricity Maps, Backboard) sits behind a feature flag, so the core loop runs with no keys at all; identical runs are fingerprint-cached in MongoDB so Gemini is not re-billed; and Auth0 does server-side RS256 JWT verification, not just a UI gate.
+
+```mermaid
+flowchart LR
+  subgraph web["web/ (Next.js, MapLibre, Three.js)"]
+    UI["Assembler, A/B toggle, memo"]
+    Voice["ElevenLabs voice agent"]
+  end
+  subgraph api["api/ (FastAPI)"]
+    Routes["Routes: compare, memo, briefing, sites, area"]
+    Agents["Multi-agent orchestrator (6 specialists + boss)"]
+  end
+  subgraph model["model/ (deterministic engine)"]
+    Sim["Stress-test simulation"]
+    Bench["52 sourced benchmarks"]
+  end
+  UI --> Routes
+  Voice --> Routes
+  Routes --> Sim
+  Routes --> Agents
+  Agents --> Sim
+  Sim --> Bench
+  Agents -->|structured JSON| Gemini[("Google Gemini")]
+  Routes --> Mongo[("MongoDB Atlas")]
+  Routes --> Auth0["Auth0"]
+  Routes --> Live["OSM Overpass, Open-Meteo ERA5, Electricity Maps, Stay22"]
+```
+
 ## Run it
 
 ```bash
