@@ -368,20 +368,15 @@ export default function HomePage() {
       }));
       setPlaced(false);
       invalidate();
-<<<<<<< Updated upstream
-      appendLog(`Selected ${site.label} — open land (not a building/road).`);
-
-      // Climate follows the selected parcel pin (not the original search center).
-=======
       const acres =
         site.area_acres != null
           ? `${site.area_acres} ac`
           : null;
       appendLog(
-        `Selected ${site.label}${acres ? ` · ${acres}` : ""} — open land (not a building/road).`,
+        `Selected ${site.label}${acres ? ` · ${acres}` : ""}, open land (not a building/road).`,
       );
 
->>>>>>> Stashed changes
+      // Climate follows the selected parcel pin (not the original search center).
       setAreaLoading(true);
       void fetchAreaBrief(site.center.lat, site.center.lng)
         .then((brief) => {
@@ -390,12 +385,9 @@ export default function HomePage() {
             land: prev?.land,
           }));
           setAreaLoading(false);
-<<<<<<< Updated upstream
-=======
           appendLog(
-            `Area climate: ${brief.climate.weather ?? "—"}, ${brief.climate.temp_c ?? "—"}°C (live Open-Meteo).`,
+            `Area climate: ${brief.climate.weather ?? "n/a"}, ${brief.climate.temp_c ?? "n/a"}°C (live Open-Meteo).`,
           );
->>>>>>> Stashed changes
         })
         .catch(() => {
           setAreaLoading(false);
