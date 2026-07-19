@@ -54,6 +54,7 @@ export interface BuildingSpec {
   shapeId?: ShapeId;
   /** Assembler kit — drives Three.js modular structure. */
   components: BuildComponents;
+  rooms?: number;
 }
 
 interface SiteMapProps {

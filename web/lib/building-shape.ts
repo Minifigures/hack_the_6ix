@@ -172,8 +172,8 @@ export function storeysRange(uiType: "hotel" | "homestay" | "bnb"): {
   min: number;
   max: number;
 } {
-  if (uiType === "hotel") return { min: 3, max: 12 };
-  return { min: 2, max: 4 };
+  if (uiType === "hotel") return { min: 3, max: 24 };
+  return { min: 2, max: 6 };
 }
 
 export function defaultShapeId(uiType: "hotel" | "homestay" | "bnb"): ShapeId {

@@ -143,7 +143,7 @@ export async function fetchEmptySites(
     lat: String(lat),
     lng: String(lng),
     radius: "700",
-    limit: "5",
+    limit: "8",
   });
   try {
     const res = await fetch(`${API_BASE}/sites/empty?${params}`, { signal });

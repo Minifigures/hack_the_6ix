@@ -684,9 +684,10 @@ export default function HomePage() {
             floors: storeys,
             shapeId,
             components: activeComponents,
+            rooms,
           }
         : null,
-    [placed, activeComponents, storeys, shapeId],
+    [placed, activeComponents, storeys, shapeId, rooms],
   );
 
   const selectedCandidate =

@@ -22,6 +22,8 @@ export interface MeshBuildingSpec {
   floors: number;
   shapeId?: ShapeId;
   components: BuildComponents;
+  /** Total key count; drives facade bay rhythm (rooms per storey). */
+  rooms?: number;
 }
 
 /**
@@ -265,10 +267,16 @@ export function buildModularBuilding(
   const floorThick = floorTimber ? 0.28 : 0.2;
   const maxTo = Math.max(...rings.map((r) => r.toLevel), 1);
 
+  // Facade bay width follows rooms per storey: each key wants a bay, so a
+  // denser room program reads as a busier facade. Falls back to 3.4 m.
+  const roomsPerStorey =
+    spec.rooms && spec.floors > 0 ? spec.rooms / spec.floors : null;
+
   for (const ring of rings) {
     if (ring.points.length < 3) continue;
     const edges = edgePoints(ring.points);
     if (edges.length === 0) continue;
+    const ringPerimeter = edges.reduce((sum, e) => sum + e.len, 0);
     const { cx, cz } = centroidOf(ring.points);
 
     // Ghost + structure share the same parcel polygon (street-aligned).
@@ -380,7 +388,18 @@ export function buildModularBuilding(
         const nx = -dz / e.len;
         const nz = dx / e.len;
         const yaw = -Math.atan2(dz, dx);
-        const bays = Math.max(2, Math.round(e.len / 3.4));
+        // One facade bay per room on this storey, shared across edges by
+        // length; min bay width 1.8 m, default rhythm without a room count.
+        const bays =
+          roomsPerStorey && ringPerimeter > 0
+            ? Math.max(
+                1,
+                Math.min(
+                  Math.floor(e.len / 1.8),
+                  Math.round(roomsPerStorey * (e.len / ringPerimeter)),
+                ),
+              )
+            : Math.max(2, Math.round(e.len / 3.4));
 
         for (let i = 0; i <= bays; i++) {
           const t = i / bays;
