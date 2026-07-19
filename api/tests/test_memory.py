@@ -25,3 +25,10 @@ def test_chat_without_memory_unchanged(monkeypatch) -> None:
     res = answer_chat(ChatRequest(message="what is a memo"))
     assert res.reply
     assert res.memories_used == 0
+
+
+def test_backboard_fallback_none_without_key(monkeypatch) -> None:
+    monkeypatch.delenv("BACKBOARD_API_KEY", raising=False)
+    from app.agents import memory
+
+    assert memory.generate_fallback("auth0|u1", "investor", "hello") is None

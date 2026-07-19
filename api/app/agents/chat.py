@@ -558,6 +558,30 @@ def _gemini_text(system: str, user: str, api_key: str) -> str:
     return text
 
 
+def _backboard_answer(
+    req: ChatRequest, gemini_reason: str | None = None
+) -> ChatResponse | None:
+    """Second fallback tier: Backboard routes to an available LLM with
+    agentic RAG over our handbook plus this stakeholder's memory."""
+    if not req.auth0_sub:
+        return None
+    from app.agents.memory import generate_fallback
+
+    result = generate_fallback(
+        req.auth0_sub, req.stakeholder_role or "", req.message
+    )
+    if result is None:
+        return None
+    reply, retrieved = result
+    return ChatResponse(
+        reply=reply,
+        citations=["Backboard agentic RAG (handbook + stakeholder memory)"],
+        generator="backboard",
+        fallback_reason=gemini_reason or "gemini_unavailable",
+        memories_used=retrieved,
+    )
+
+
 def answer_chat(req: ChatRequest) -> ChatResponse:
     # Affirmative follow-up after we offered to explain what a memo is.
     affirm = _tokens(req.message) - _WEAK_TOKENS
@@ -666,6 +690,9 @@ def answer_chat(req: ChatRequest) -> ChatResponse:
         refresh_dotenv()
         key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     if not key:
+        bb = _backboard_answer(req)
+        if bb is not None:
+            return bb
         return ChatResponse(
             reply=_fallback_reply(req.message, req.memo, chunks),
             citations=citations,
@@ -696,6 +723,9 @@ def answer_chat(req: ChatRequest) -> ChatResponse:
             reason = "gemini_credits_depleted"
         else:
             reason = f"gemini_error: {reason.split('. ', 1)[0][:120]}"
+        bb = _backboard_answer(req, reason)
+        if bb is not None:
+            return bb
         return ChatResponse(
             reply=_fallback_reply(req.message, req.memo, chunks),
             citations=citations,
