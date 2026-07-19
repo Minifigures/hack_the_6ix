@@ -30,10 +30,21 @@ export function MarketPulse({
 }) {
   const [data, setData] = useState<MarketData | null>(null);
   const [failed, setFailed] = useState(false);
+  const [peak, setPeak] = useState<{
+    checkin: string;
+    median_rate: number;
+  } | null>(null);
 
   useEffect(() => {
     setFailed(false);
     setData(null);
+    const q = lat != null && lng != null ? `?lat=${lat}&lng=${lng}` : "";
+    fetch(`${API_BASE}/stay22/calendar${q}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => {
+        if (c?.peak?.median_rate) setPeak(c.peak);
+      })
+      .catch(() => undefined);
     const params = new URLSearchParams();
     if (lat != null) params.set("lat", String(lat));
     if (lng != null) params.set("lng", String(lng));
@@ -96,6 +107,14 @@ export function MarketPulse({
               k/yr in room revenue (live estimate, not a forecast): the market
               itself pricing whether this building can afford its
               decarbonization premium.
+            </>
+          )}
+          {peak && (
+            <>
+              {" "}
+              Hottest upcoming weekend by live rates: {peak.checkin} ($
+              {peak.median_rate}/night median); that demand spike is the case
+              the stress test simulates.
             </>
           )}
         </p>

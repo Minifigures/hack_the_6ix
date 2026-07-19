@@ -49,6 +49,13 @@ async def _stay22_search(
     lat: float,
     lng: float,
 ) -> dict[str, Any]:
+    import os as _os
+
+    headers = {}
+    key = (_os.environ.get("STAY22_API_KEY") or "").strip()
+    if key:
+        # Hub key: authenticated tier (~150 req/min vs demo's 5).
+        headers["X-API-KEY"] = key
     response = await client.get(
         STAY22_BASE,
         params={
@@ -61,6 +68,7 @@ async def _stay22_search(
             "currency": "CAD",
             "pageSize": 20,
         },
+        headers=headers,
         timeout=8.0,
     )
     response.raise_for_status()
@@ -100,6 +108,63 @@ def _summarize_stay22(payload: dict[str, Any]) -> dict[str, Any]:
         # Live competitive pins for the map layer; display-only, never stored.
         "pins": pins[:14],
     }
+
+
+_calendar_cache: dict[tuple[float, float, str], dict[str, Any]] = {}
+
+
+async def fetch_stay22_calendar(
+    lat: float, lng: float, weekends: int = 6
+) -> dict[str, Any]:
+    """Scan upcoming Saturdays for live median rates; the peak weekend is the
+    market's own answer to "which weekend should we stress-test?". Needs the
+    authenticated key for the request budget; falls back to fewer weekends in
+    demo mode. Live calls only, in-process day-cache, nothing stored."""
+    from datetime import date as _date
+
+    key = _coord_key(lat, lng) + (_date.today().isoformat(),)
+    hit = _calendar_cache.get(key)
+    if hit:
+        return hit
+
+    import os as _os
+
+    n = weekends if (_os.environ.get("STAY22_API_KEY") or "").strip() else 3
+    first = _next_saturday()
+    rows: list[dict[str, Any]] = []
+    try:
+        async with httpx.AsyncClient() as client:
+            for i in range(n):
+                cin = first + timedelta(days=7 * i)
+                try:
+                    raw = await _stay22_search(
+                        client, cin, cin + timedelta(days=1), lat=lat, lng=lng
+                    )
+                    summary = _summarize_stay22(raw)
+                    rows.append(
+                        {
+                            "checkin": cin.isoformat(),
+                            "median_rate": summary["median_rate"],
+                            "priced": summary["priced"],
+                        }
+                    )
+                except Exception:
+                    continue
+    except Exception:
+        pass
+
+    priced_rows = [r for r in rows if r.get("median_rate")]
+    peak = max(priced_rows, key=lambda r: r["median_rate"]) if priced_rows else None
+    result = {
+        "source": "live" if rows else "unavailable",
+        "weekends": rows,
+        "peak": peak,
+        "note": "Live Stay22 weekend scan; the market's priciest upcoming "
+        "weekend is the demand case the stress test simulates.",
+    }
+    if rows:
+        _calendar_cache[key] = result
+    return result
 
 
 async def fetch_stay22_market(

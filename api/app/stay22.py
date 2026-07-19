@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.agents.gather import fetch_stay22_market
+from app.agents.gather import fetch_stay22_calendar, fetch_stay22_market
 
 router = APIRouter()
 
@@ -31,3 +31,12 @@ async def market(
         )
     # Strip internal error key for the public pulse endpoint
     return {k: v for k, v in result.items() if k != "error"}
+
+
+@router.get("/stay22/calendar")
+async def calendar(
+    lat: float = Query(default=43.64736),
+    lng: float = Query(default=-79.37361),
+) -> dict[str, Any]:
+    """Upcoming-weekend rate scan; the peak weekend backs the stress case."""
+    return await fetch_stay22_calendar(lat, lng)
