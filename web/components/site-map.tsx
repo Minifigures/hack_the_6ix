@@ -252,22 +252,21 @@ export function SiteMap({
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className="pointer-events-none absolute right-3 top-3 z-20 max-w-[15rem]">
-        <div className="rounded-md border border-white/20 bg-ink/80 px-3 py-2 shadow-lg backdrop-blur-sm">
+      <div className="pointer-events-none absolute right-3 top-3 z-20 max-w-[16rem]">
+        <div className="border border-white/15 bg-ink/75 px-3 py-2 backdrop-blur-sm">
           <p className="text-[9px] font-semibold uppercase tracking-wider text-white/55">
             Active site
           </p>
           <p className="truncate text-[12px] font-semibold text-white">
             {selectedLabel}
           </p>
+          <p className="mt-1 text-[9.5px] leading-snug text-white/65">
+            {sitesNote?.trim()
+              ? sitesNote
+              : "Green = OSM open land. Click a parcel to select."}
+          </p>
         </div>
       </div>
-
-      <p className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-md -translate-x-1/2 rounded-md bg-ink/80 px-3 py-1.5 text-center text-[10px] leading-snug text-white/90 backdrop-blur-sm">
-        {sitesNote?.trim()
-          ? sitesNote
-          : "Green = OSM open land / parking (may disagree slightly with ortho). Click a parcel to select."}
-      </p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { sendChatMessage } from "@/lib/api";
 import type { AgentBrief, BossSynthesis, Memo } from "@/lib/types";
 
@@ -26,6 +26,8 @@ interface ChatPanelProps {
   siteName?: string;
   siteLat?: number;
   siteLng?: number;
+  /** Optional control (e.g. voice mic) sitting in the same dock. */
+  dockExtra?: ReactNode;
 }
 
 export function ChatPanel({
@@ -35,6 +37,7 @@ export function ChatPanel({
   siteName,
   siteLat,
   siteLng,
+  dockExtra,
 }: ChatPanelProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -104,7 +107,7 @@ export function ChatPanel({
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex flex-col items-end gap-2">
       {open && (
-        <div className="pointer-events-auto flex h-[min(420px,70vh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-panel-border bg-panel shadow-xl">
+        <div className="pointer-events-auto flex h-[min(380px,62vh)] w-[min(320px,calc(100vw-2rem))] flex-col overflow-hidden border border-panel-border bg-panel shadow-xl">
           <header className="flex items-center justify-between border-b border-panel-border px-3 py-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-text-soft">
@@ -127,7 +130,7 @@ export function ChatPanel({
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`rounded-md px-2.5 py-2 text-[12px] leading-snug ${
+                className={`px-2.5 py-2 text-[12px] leading-snug ${
                   m.role === "user"
                     ? "ml-6 bg-ink text-white"
                     : "mr-4 bg-panel-muted text-text-strong"
@@ -144,14 +147,14 @@ export function ChatPanel({
             <div ref={bottomRef} />
           </div>
 
-          <div className="flex flex-wrap gap-1 border-t border-panel-border px-2 pt-2">
+          <div className="flex flex-wrap gap-x-2 gap-y-1 border-t border-panel-border px-3 pt-2">
             {SUGGESTIONS.map((s) => (
               <button
                 key={s}
                 type="button"
                 disabled={busy}
                 onClick={() => void send(s)}
-                className="rounded-full border border-panel-border px-2 py-0.5 text-[10px] text-text-soft hover:bg-panel-muted disabled:opacity-50"
+                className="text-[10px] text-text-soft underline-offset-2 hover:text-text-strong hover:underline disabled:opacity-50"
               >
                 {s}
               </button>
@@ -170,12 +173,12 @@ export function ChatPanel({
               onChange={(e) => setInput(e.target.value)}
               disabled={busy}
               placeholder="Ask about the memo or app…"
-              className="min-w-0 flex-1 rounded border border-panel-border bg-white px-2 py-1.5 text-[12px] outline-none focus:border-[#5B9BD5]"
+              className="min-w-0 flex-1 border border-panel-border bg-white px-2 py-1.5 text-[12px] outline-none focus:border-[#5B9BD5]"
             />
             <button
               type="submit"
               disabled={busy || !input.trim()}
-              className="rounded bg-ink px-3 py-1.5 text-[12px] font-semibold text-accent disabled:opacity-50"
+              className="bg-ink px-3 py-1.5 text-[12px] font-semibold text-accent disabled:opacity-50"
             >
               {busy ? "…" : "Send"}
             </button>
@@ -183,13 +186,16 @@ export function ChatPanel({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="pointer-events-auto rounded-full border-2 border-accent bg-ink px-4 py-2.5 text-[13px] font-semibold text-accent shadow-lg hover:bg-ink-raised"
-      >
-        {open ? "Hide chat" : "Ask INN-SIGHT"}
-      </button>
+      <div className="pointer-events-auto flex items-center gap-2">
+        {dockExtra}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="border border-accent bg-ink px-3.5 py-2 text-[12px] font-semibold text-accent shadow-md hover:bg-ink-raised"
+        >
+          {open ? "Close chat" : "Ask INN-SIGHT"}
+        </button>
+      </div>
     </div>
   );
 }

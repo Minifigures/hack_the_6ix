@@ -157,7 +157,7 @@ export async function fetchEmptySites(
       return {
         sites: data.sites.map(withArea),
         note:
-          data.note ?? "OSM open land / parking — not buildings or roads.",
+          data.note ?? "OSM open land / parking — click to select.",
         fromOsm: true,
       };
     }
@@ -166,7 +166,7 @@ export async function fetchEmptySites(
   }
   return {
     sites: generateFallbackSites(lng, lat),
-    note: "No OSM empty parcels nearby — showing approximate nearby pads (verify on imagery).",
+    note: "Approx pads — verify on imagery before placing.",
     fromOsm: false,
   };
 }

@@ -97,23 +97,24 @@ function VoiceControllerInner({
   const connected = conversation.status === "connected";
 
   return (
-    <div className="pointer-events-auto fixed bottom-5 right-80 z-40 flex flex-col items-end gap-1.5">
+    <div className="relative flex flex-col items-end gap-1.5">
       {error && (
-        <p className="rounded bg-ink/90 px-2.5 py-1 text-[11px] text-alert">
+        <p className="absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-ink/90 px-2.5 py-1 text-[11px] text-alert">
           {error}
         </p>
       )}
       {connected && (
-        <p className="rounded bg-ink/90 px-2.5 py-1 text-[11px] text-white/80">
+        <p className="absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-ink/90 px-2.5 py-1 text-[11px] text-white/80">
           {conversation.isSpeaking ? "Consultant speaking..." : "Listening..."}
         </p>
       )}
       <button
+        type="button"
         onClick={connected ? stop : start}
-        className={`grid h-13 w-13 place-items-center rounded-full border-2 p-3.5 shadow-lg transition ${
+        className={`grid h-10 w-10 place-items-center border transition ${
           connected
             ? "border-alert bg-alert/20 text-alert"
-            : "border-accent bg-ink text-accent hover:bg-ink-raised"
+            : "border-accent bg-ink text-accent shadow-md hover:bg-ink-raised"
         }`}
         title={connected ? "End voice session" : "Talk to the consultant"}
       >

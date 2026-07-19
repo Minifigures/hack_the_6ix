@@ -340,8 +340,8 @@ export default function HomePage() {
 
       appendLog(
         fromOsm
-          ? `Found ${sites.length} OSM open-land / parking parcels (may sit a few metres off the 2025 ortho — click imagery to verify).`
-          : `No OSM empty land nearby; ${sites.length} approximate pads. Check imagery before placing.`,
+          ? `Found ${sites.length} OSM open-land / parking parcels.`
+          : `No OSM empty land nearby; ${sites.length} approximate pads.`,
       );
     },
     [appendLog, invalidate],
@@ -676,15 +676,6 @@ export default function HomePage() {
           }`}
         >
       <TopBar siteName={activeSite.name} onSearchPlace={handleSearchPlace} />
-      {FLAGS.voice && (
-        <VoiceController
-          onSetOption={handleOptionChange}
-          onSetRooms={handleRoomsChange}
-          onSetType={handleVoiceType}
-          onRunStressTest={handleRunStressTest}
-          explainMemo={explainMemo}
-        />
-      )}
       <ChatPanel
         memo={memo}
         briefs={briefs}
@@ -692,6 +683,17 @@ export default function HomePage() {
         siteName={activeSite.name}
         siteLat={activeSite.lat}
         siteLng={activeSite.lng}
+        dockExtra={
+          FLAGS.voice ? (
+            <VoiceController
+              onSetOption={handleOptionChange}
+              onSetRooms={handleRoomsChange}
+              onSetType={handleVoiceType}
+              onRunStressTest={handleRunStressTest}
+              explainMemo={explainMemo}
+            />
+          ) : undefined
+        }
       />
       <div className="relative flex min-h-0 flex-1">
         <IconRail />
@@ -719,6 +721,12 @@ export default function HomePage() {
           onOptionChange={handleOptionChange}
           onComponentChange={handleComponentChange}
           onRunStressTest={handleRunStressTest}
+          onOpenPastRuns={() =>
+            setOverlay(overlay === "runs" ? "none" : "runs")
+          }
+          onOpenProfiles={() =>
+            setOverlay(overlay === "profiles" ? "none" : "profiles")
+          }
         />
 
         <main className="relative min-w-0 flex-1">
@@ -784,31 +792,11 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => setOverlay("none")}
-              className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full border border-white/25 bg-ink/90 px-4 py-1.5 text-[12px] font-medium text-white hover:bg-ink"
+              className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 border border-white/25 bg-ink/90 px-4 py-1.5 text-[12px] font-medium text-white hover:bg-ink"
             >
               Back to map
             </button>
           )}
-          <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setOverlay(overlay === "runs" ? "none" : "runs")
-              }
-              className="rounded border border-panel-border bg-panel/95 px-3 py-2 text-[12px] font-semibold shadow-md backdrop-blur-sm hover:bg-panel-muted"
-            >
-              Past runs
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setOverlay(overlay === "profiles" ? "none" : "profiles")
-              }
-              className="rounded border border-panel-border bg-panel/95 px-3 py-2 text-[12px] font-semibold shadow-md backdrop-blur-sm hover:bg-panel-muted"
-            >
-              Energy load profiles
-            </button>
-          </div>
         </main>
 
         {placed ? (

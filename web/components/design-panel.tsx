@@ -86,6 +86,8 @@ interface DesignPanelProps {
   onOptionChange: (option: OptionKey) => void;
   onComponentChange: (field: keyof BuildComponents, value: string) => void;
   onRunStressTest: () => void;
+  onOpenPastRuns?: () => void;
+  onOpenProfiles?: () => void;
 }
 
 function fmt(n: number | null | undefined, suffix = "", digits = 0): string {
@@ -116,6 +118,8 @@ export function DesignPanel({
   onOptionChange,
   onComponentChange,
   onRunStressTest,
+  onOpenPastRuns,
+  onOpenProfiles,
 }: DesignPanelProps) {
   const [openSections, setOpenSections] = useState<Set<string>>(
     () => new Set(["Foundation"]),
@@ -388,6 +392,29 @@ export function DesignPanel({
           </>
         )}
       </div>
+
+      {(onOpenPastRuns || onOpenProfiles) && (
+        <div className="flex shrink-0 gap-3 border-t border-panel-border px-3.5 py-2.5">
+          {onOpenPastRuns && (
+            <button
+              type="button"
+              onClick={onOpenPastRuns}
+              className="text-[11px] text-text-soft hover:text-text-strong"
+            >
+              Past runs
+            </button>
+          )}
+          {onOpenProfiles && (
+            <button
+              type="button"
+              onClick={onOpenProfiles}
+              className="text-[11px] text-text-soft hover:text-text-strong"
+            >
+              Load profiles
+            </button>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

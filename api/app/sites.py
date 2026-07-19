@@ -410,10 +410,7 @@ async def empty_sites(
     radius: int = Query(700, ge=150, le=2000),
     limit: int = Query(5, ge=1, le=8),
 ) -> dict[str, Any]:
-    note_osm = (
-        "OpenStreetMap surface parking / brownfield / construction land, not "
-        "buildings or roads. Not a legal vacant-lot registry."
-    )
+    note_osm = "OSM open land / parking — not a legal vacant-lot registry."
     cache_key = (round(lat, 3), round(lng, 3))
     try:
         parcels, buildings = await _query_overpass(lat, lng, radius)
@@ -446,7 +443,7 @@ async def empty_sites(
         return {
             "sites": cached,
             "source": "openstreetmap-overpass-cached",
-            "note": note_osm + " (served from this session's earlier lookup)",
+            "note": note_osm + " (cached)",
             "count": len(cached),
         }
 
@@ -455,10 +452,7 @@ async def empty_sites(
         return {
             "sites": curated,
             "source": "curated-orthophoto",
-            "note": (
-                "OSM lookup unavailable; showing parcels traced from the City "
-                "of Toronto 2025 orthophoto."
-            ),
+            "note": "OSM unavailable — parcels from Toronto 2025 ortho.",
             "count": len(curated),
         }
 
@@ -466,9 +460,6 @@ async def empty_sites(
     return {
         "sites": sites,
         "source": "approx-fallback",
-        "note": (
-            "OSM empty-land lookup unavailable; approximate pads offset from "
-            "the pin. Verify on imagery before placing."
-        ),
+        "note": "OSM unavailable — approx pads; verify on imagery.",
         "count": len(sites),
     }
