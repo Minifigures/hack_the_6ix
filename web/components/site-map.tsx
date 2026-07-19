@@ -134,6 +134,7 @@ export function SiteMap({
         },
       });
       void loadContextBuildings(map, activeSite.lat, activeSite.lng);
+      void loadCompetitorPins(map, activeSite.lat, activeSite.lng);
 
       map.addLayer({
         id: "candidates-fill",
@@ -269,6 +270,35 @@ export function SiteMap({
       </div>
     </div>
   );
+}
+
+async function loadCompetitorPins(
+  map: maplibregl.Map,
+  lat: number,
+  lng: number,
+) {
+  if (process.env.NEXT_PUBLIC_FLAG_STAY22 !== "true") return;
+  try {
+    const base = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+    const res = await fetch(`${base}/stay22/market?lat=${lat}&lng=${lng}`);
+    if (!res.ok) return;
+    const data = (await res.json()) as {
+      target?: { pins?: { name: string; lat: number; lng: number; rate: number | null; stars?: number | null }[] };
+    };
+    for (const pin of data.target?.pins ?? []) {
+      if (pin.rate == null) continue;
+      const el = document.createElement("div");
+      el.className =
+        "rounded-full border border-white/60 bg-[#123346]/90 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow";
+      el.textContent = `$${pin.rate}${pin.stars ? ` · ${pin.stars}★` : ""}`;
+      el.title = `${pin.name}: live rate via Stay22 (Booking, Expedia, Hotels.com, Vrbo)`;
+      new maplibregl.Marker({ element: el, anchor: "bottom" })
+        .setLngLat([pin.lng, pin.lat])
+        .addTo(map);
+    }
+  } catch {
+    // Live competitive layer is optional; the map is complete without it.
+  }
 }
 
 async function loadContextBuildings(

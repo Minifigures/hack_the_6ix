@@ -134,7 +134,7 @@ export function StressView({
 
       {FLAGS.stay22 && (
         <div className="mb-2.5">
-          <MarketPulse lat={siteLat} lng={siteLng} />
+          <MarketPulse lat={siteLat} lng={siteLng} rooms={comparison.option_a.config.rooms} />
         </div>
       )}
       {briefs && synthesis && briefingGenerator && (

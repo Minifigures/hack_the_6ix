@@ -22,9 +22,11 @@ interface MarketData {
 export function MarketPulse({
   lat,
   lng,
+  rooms,
 }: {
   lat?: number;
   lng?: number;
+  rooms?: number;
 }) {
   const [data, setData] = useState<MarketData | null>(null);
   const [failed, setFailed] = useState(false);
@@ -82,6 +84,18 @@ export function MarketPulse({
               </span>
               {data.demand_ratio >= 1.05 &&
                 ": the fully booked stress weekend is what the market is pricing."}
+            </>
+          )}
+          {rooms != null && data.target.median_rate != null && (
+            <>
+              {" "}
+              At that median, {rooms} rooms at 65% occupancy earn roughly $
+              {Math.round(
+                (data.target.median_rate * rooms * 0.65 * 365) / 1000,
+              )}
+              k/yr in room revenue (live estimate, not a forecast): the market
+              itself pricing whether this building can afford its
+              decarbonization premium.
             </>
           )}
         </p>

@@ -70,19 +70,35 @@ async def _stay22_search(
 def _summarize_stay22(payload: dict[str, Any]) -> dict[str, Any]:
     results = payload.get("results") or []
     prices: list[float] = []
+    pins: list[dict[str, Any]] = []
     for item in results:
         supplier_prices = [
             s["price"]["total"]
             for s in (item.get("suppliers") or {}).values()
             if isinstance(s, dict) and (s.get("price") or {}).get("total")
         ]
-        if supplier_prices:
-            prices.append(min(supplier_prices))
+        best = min(supplier_prices) if supplier_prices else None
+        if best is not None:
+            prices.append(best)
+        coords = ((item.get("location") or {}).get("coordinates")) or {}
+        rating = item.get("rating") or {}
+        if coords.get("lat") and coords.get("lng"):
+            pins.append(
+                {
+                    "name": str(item.get("name") or "")[:60],
+                    "lat": coords["lat"],
+                    "lng": coords["lng"],
+                    "rate": round(best, 0) if best is not None else None,
+                    "stars": rating.get("hotelStars"),
+                }
+            )
     return {
         "properties": len(results),
         "priced": len(prices),
         "median_rate": round(statistics.median(prices), 0) if prices else None,
         "min_rate": round(min(prices), 0) if prices else None,
+        # Live competitive pins for the map layer; display-only, never stored.
+        "pins": pins[:14],
     }
 
 
