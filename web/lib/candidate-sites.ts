@@ -6,11 +6,55 @@ export interface CandidateSite {
   id: string;
   label: string;
   kind?: string;
+  area_m2?: number;
+  area_acres?: number;
   center: { lng: number; lat: number };
   polygon: GeoJSON.Feature<GeoJSON.Polygon>;
 }
 
 const LABELS = ["A", "B", "C", "D", "E"] as const;
+const M2_PER_ACRE = 4046.8564224;
+
+/** Approx acres from a lon/lat polygon (equirectangular). */
+export function polygonAreaAcres(
+  polygon: GeoJSON.Feature<GeoJSON.Polygon> | GeoJSON.Polygon,
+): number {
+  const ring =
+    polygon.type === "Feature"
+      ? polygon.geometry.coordinates[0]
+      : polygon.coordinates[0];
+  if (!ring || ring.length < 4) return 0;
+  let clng = 0;
+  let clat = 0;
+  const n = ring.length - 1;
+  for (let i = 0; i < n; i++) {
+    clng += ring[i][0];
+    clat += ring[i][1];
+  }
+  clng /= n;
+  clat /= n;
+  const cosLat = Math.cos((clat * Math.PI) / 180) || 1e-6;
+  const pts: [number, number][] = ring.map(([lng, lat]) => [
+    (lng - clng) * 111_320 * cosLat,
+    (lat - clat) * 111_320,
+  ]);
+  let a = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    a += pts[i][0] * pts[i + 1][1] - pts[i + 1][0] * pts[i][1];
+  }
+  const m2 = Math.abs(a) * 0.5;
+  return Math.round((m2 / M2_PER_ACRE) * 1000) / 1000;
+}
+
+function withArea(site: CandidateSite): CandidateSite {
+  if (site.area_acres != null && site.area_m2 != null) return site;
+  const acres = polygonAreaAcres(site.polygon);
+  return {
+    ...site,
+    area_acres: acres,
+    area_m2: Math.round(acres * M2_PER_ACRE * 10) / 10,
+  };
+}
 
 function offsetDegrees(
   lng: number,
@@ -62,13 +106,17 @@ export function generateFallbackSites(
     const [clng, clat] = offsetDegrees(lng, lat, off.e, off.n);
     const id = `candidate-${LABELS[i]}`;
     const label = `Candidate site ${LABELS[i]} (approx.)`;
-    return {
+    return withArea({
       id,
       label,
       kind: "approx",
       center: { lng: clng, lat: clat },
-      polygon: rectPolygon(clng, clat, off.w, off.h, { id, label, kind: "approx" }),
-    };
+      polygon: rectPolygon(clng, clat, off.w, off.h, {
+        id,
+        label,
+        kind: "approx",
+      }),
+    });
   });
 }
 
@@ -102,10 +150,9 @@ export async function fetchEmptySites(
     };
     if (data.sites?.length) {
       return {
-        sites: data.sites,
+        sites: data.sites.map(withArea),
         note:
-          data.note ??
-          "OSM open land / parking — not buildings or roads.",
+          data.note ?? "OSM open land / parking — not buildings or roads.",
         fromOsm: true,
       };
     }

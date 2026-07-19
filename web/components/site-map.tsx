@@ -193,23 +193,6 @@ export function SiteMap({
       // MapLibre's extrusion pass punches holes through overlapping features).
       ensureBuildingRingLayers(map);
 
-      map.addSource("context-buildings", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addLayer({
-        id: "context-buildings",
-        type: "fill-extrusion",
-        source: "context-buildings",
-        paint: {
-          "fill-extrusion-color": "#d7dce2",
-          "fill-extrusion-height": ["get", "height"],
-          "fill-extrusion-opacity": 0.42,
-          "fill-extrusion-vertical-gradient": true,
-        },
-      });
-      void loadContextBuildings(map, activeSite.lat, activeSite.lng);
-
       map.addLayer({
         id: "candidates-fill",
         type: "fill",
@@ -335,31 +318,10 @@ export function SiteMap({
       <p className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-md -translate-x-1/2 rounded-md bg-ink/80 px-3 py-1.5 text-center text-[10px] leading-snug text-white/90 backdrop-blur-sm">
         {sitesNote?.trim()
           ? sitesNote
-          : "Green = open OSM land. Click a parcel to select — not buildings or roads."}
+          : "Green = open OSM land. Click a parcel to select."}
       </p>
     </div>
   );
-}
-
-async function loadContextBuildings(
-  map: maplibregl.Map,
-  lat: number,
-  lng: number,
-) {
-  try {
-    const base = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
-    const res = await fetch(
-      `${base}/sites/context?lat=${lat}&lng=${lng}&radius=450`,
-    );
-    if (!res.ok) return;
-    const data = (await res.json()) as GeoJSON.FeatureCollection;
-    const src = map.getSource(
-      "context-buildings",
-    ) as maplibregl.GeoJSONSource | undefined;
-    src?.setData(data);
-  } catch {
-    // Context layer is decorative; the map is complete without it.
-  }
 }
 
 function syncBuilding(

@@ -40,6 +40,7 @@ import { ENTERED_KEY } from "@/lib/auth0-shared";
 import {
   fetchEmptySites,
   generateFallbackSites,
+  polygonAreaAcres,
   type CandidateSite,
 } from "@/lib/candidate-sites";
 import { fetchAreaBrief, type GeocodeResult } from "@/lib/geocode";
@@ -148,9 +149,9 @@ export default function HomePage() {
     const wasEntered = sessionStorage.getItem(ENTERED_KEY) === "1";
 
     if (wantsEnter) {
-      if (FLAGS.auth0 && auth.loading) return;
+      if (auth.enabled && auth.loading) return;
       window.history.replaceState({}, "", "/");
-      if (!FLAGS.auth0 || auth.loggedIn) {
+      if (!auth.enabled || auth.loggedIn) {
         enterApp();
         return;
       }
@@ -159,7 +160,7 @@ export default function HomePage() {
     }
 
     // After logout (or expired session), always show landing — never restore the assembler.
-    if (FLAGS.auth0) {
+    if (auth.enabled) {
       if (auth.loading) return;
       if (!auth.loggedIn) {
         sessionStorage.removeItem(ENTERED_KEY);
@@ -169,16 +170,16 @@ export default function HomePage() {
     }
 
     if (wasEntered) setEntered(true);
-  }, [auth.loading, auth.loggedIn, enterApp]);
+  }, [auth.enabled, auth.loading, auth.loggedIn, enterApp]);
 
   const handleGetStarted = useCallback(() => {
     // Don't wait forever on a hung /auth/profile — open sign-in right away.
-    if (FLAGS.auth0 && !auth.loggedIn) {
+    if (auth.enabled && !auth.loggedIn) {
       setSignIn({ open: true, reason: "start" });
       return;
     }
     enterApp();
-  }, [auth.loggedIn, enterApp]);
+  }, [auth.enabled, auth.loggedIn, enterApp]);
 
   const appendLog = useCallback((line: string) => {
     setLog((prev) => [...prev.slice(-9), line]);
@@ -367,9 +368,20 @@ export default function HomePage() {
       }));
       setPlaced(false);
       invalidate();
+<<<<<<< Updated upstream
       appendLog(`Selected ${site.label} — open land (not a building/road).`);
 
       // Climate follows the selected parcel pin (not the original search center).
+=======
+      const acres =
+        site.area_acres != null
+          ? `${site.area_acres} ac`
+          : null;
+      appendLog(
+        `Selected ${site.label}${acres ? ` · ${acres}` : ""} — open land (not a building/road).`,
+      );
+
+>>>>>>> Stashed changes
       setAreaLoading(true);
       void fetchAreaBrief(site.center.lat, site.center.lng)
         .then((brief) => {
@@ -378,6 +390,12 @@ export default function HomePage() {
             land: prev?.land,
           }));
           setAreaLoading(false);
+<<<<<<< Updated upstream
+=======
+          appendLog(
+            `Area climate: ${brief.climate.weather ?? "—"}, ${brief.climate.temp_c ?? "—"}°C (live Open-Meteo).`,
+          );
+>>>>>>> Stashed changes
         })
         .catch(() => {
           setAreaLoading(false);
@@ -454,8 +472,40 @@ export default function HomePage() {
     [invalidate, option],
   );
 
+  const handleRailSelect = useCallback(
+    (key: string) => {
+      const preset = RAIL_PRESETS.find((p) => p.key === key);
+      if (!preset) return;
+      const nextRooms =
+        preset.rooms ??
+        UI_TYPES.find((t) => t.key === preset.type)?.rooms ??
+        40;
+      setPlaced(true);
+      setUiType(preset.type);
+      setRooms(nextRooms);
+      setOption(preset.option);
+      invalidate();
+      appendLog(
+        `Preset: ${preset.label} · ${nextRooms} rooms · Option ${preset.option}.`,
+      );
+    },
+    [appendLog, invalidate],
+  );
+
+  const railActive =
+    RAIL_PRESETS.find((p) => {
+      const presetRooms =
+        p.rooms ?? UI_TYPES.find((t) => t.key === p.type)?.rooms ?? 40;
+      return (
+        placed &&
+        uiType === p.type &&
+        option === p.option &&
+        rooms === presetRooms
+      );
+    })?.key ?? null;
+
   const handleRunStressTest = useCallback(async () => {
-    if (FLAGS.auth0 && !auth.loggedIn) {
+    if (auth.enabled && !auth.loggedIn) {
       setSignIn({ open: true, reason: "stress" });
       return;
     }
@@ -469,7 +519,7 @@ export default function HomePage() {
       structure_b: deriveStructure(componentsByOption.B),
       hvac_b: deriveHvac(componentsByOption.B),
     };
-    const auth0Sub = FLAGS.auth0 && auth.sub ? auth.sub : undefined;
+    const auth0Sub = auth.enabled && auth.sub ? auth.sub : undefined;
     try {
       const year = await fetchYearBriefing(
         engineType,
@@ -602,6 +652,15 @@ export default function HomePage() {
       }
     : null;
 
+  const selectedCandidate =
+    candidates.find((c) => c.id === selectedCandidateId) ?? null;
+  const siteFacts = {
+    area_acres:
+      selectedCandidate?.area_acres ??
+      polygonAreaAcres(activeSite.polygon),
+    kind: selectedCandidate?.kind,
+  };
+
   const optionLabel =
     option === "A"
       ? "Option A: Concrete + Central HVAC"
@@ -643,7 +702,11 @@ export default function HomePage() {
         />
       )}
       <div className="relative flex min-h-0 flex-1">
-        <IconRail />
+        <IconRail
+          active={railActive}
+          disabled={running}
+          onSelect={handleRailSelect}
+        />
 
         <DesignPanel
           placed={placed}
@@ -657,6 +720,7 @@ export default function HomePage() {
           running={running}
           areaBrief={areaBrief}
           areaLoading={areaLoading}
+          siteFacts={siteFacts}
           onPlace={handlePlace}
           onTypeChange={handleTypeChange}
           onRoomsChange={handleRoomsChange}
@@ -808,17 +872,56 @@ function formatRunTs(iso: string): string {
   }
 }
 
-function IconRail() {
+const RAIL_PRESETS: {
+  key: string;
+  label: string;
+  type: UiBuildingType;
+  option: OptionKey;
+  rooms?: number;
+}[] = [
+  { key: "hotel", label: "Hotel", type: "hotel", option: "A" },
+  { key: "timber", label: "Timber hotel", type: "hotel", option: "B" },
+  { key: "tower", label: "Tower", type: "hotel", option: "A", rooms: 80 },
+  { key: "bnb", label: "B&B", type: "bnb", option: "A" },
+  { key: "homestay", label: "Homestay", type: "homestay", option: "B" },
+];
+
+function IconRail({
+  active,
+  disabled,
+  onSelect,
+}: {
+  active: string | null;
+  disabled?: boolean;
+  onSelect: (key: string) => void;
+}) {
   return (
-    <div className="relative z-10 flex w-11 shrink-0 flex-col items-center gap-2 border-r border-panel-border bg-panel py-3">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <span
-          key={i}
-          className="grid h-8 w-8 place-items-center rounded border border-panel-border bg-panel-muted"
-        >
-          <RailThumb index={i} />
-        </span>
-      ))}
+    <div
+      className="relative z-10 flex w-11 shrink-0 flex-col items-center gap-2 border-r border-panel-border bg-panel py-3"
+      role="toolbar"
+      aria-label="Building presets"
+    >
+      {RAIL_PRESETS.map((preset, i) => {
+        const selected = active === preset.key;
+        return (
+          <button
+            key={preset.key}
+            type="button"
+            title={preset.label}
+            aria-label={preset.label}
+            aria-pressed={selected}
+            disabled={disabled}
+            onClick={() => onSelect(preset.key)}
+            className={`grid h-8 w-8 place-items-center rounded border transition-colors disabled:opacity-50 ${
+              selected
+                ? "border-[#5B9BD5] bg-[#EAF4FB]"
+                : "border-panel-border bg-panel-muted hover:bg-panel-muted/80"
+            }`}
+          >
+            <RailThumb index={i} />
+          </button>
+        );
+      })}
     </div>
   );
 }

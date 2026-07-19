@@ -73,6 +73,7 @@ interface DesignPanelProps {
   running: boolean;
   areaBrief: AreaBrief | null;
   areaLoading: boolean;
+  siteFacts?: { area_acres?: number; kind?: string };
   onPlace: () => void;
   onTypeChange: (type: UiBuildingType) => void;
   onRoomsChange: (rooms: number) => void;
@@ -100,6 +101,7 @@ export function DesignPanel({
   running,
   areaBrief,
   areaLoading,
+  siteFacts,
   onPlace,
   onTypeChange,
   onRoomsChange,
@@ -144,6 +146,7 @@ export function DesignPanel({
           placeName={shortName}
           brief={areaBrief}
           loading={areaLoading}
+          siteFacts={siteFacts}
         />
 
         {!placed ? (
@@ -384,12 +387,14 @@ function SiteClimateCard({
   placeName,
   brief,
   loading,
+  siteFacts,
 }: {
   placeName: string;
   brief: AreaBrief | null;
   loading: boolean;
+  siteFacts?: { area_acres?: number; kind?: string };
 }) {
-  if (loading) {
+  if (loading && !brief) {
     return (
       <div className="rounded-md border border-panel-border bg-panel-muted/60 px-3 py-2.5">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-text-soft">
@@ -403,12 +408,20 @@ function SiteClimateCard({
   if (!brief) return null;
 
   const c = brief.climate;
+  const acres = siteFacts?.area_acres;
+  const useLabel =
+    siteFacts?.kind && siteFacts.kind !== "approx"
+      ? siteFacts.kind.replace(/_/g, " ")
+      : siteFacts?.kind === "approx"
+        ? "approx pad"
+        : null;
+
   return (
     <div className="rounded-md border border-panel-border bg-panel-muted px-3 py-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-text-soft">
-            Site climate · live
+            Site climate · live{loading ? " · updating" : ""}
           </p>
           <p className="mt-0.5 truncate text-[12px] font-semibold text-text-strong">
             {placeName}
@@ -445,8 +458,29 @@ function SiteClimateCard({
           </dd>
         </div>
       </dl>
+      {(acres != null || useLabel) && (
+        <>
+          <dl className="mt-1.5 grid grid-cols-2 gap-1 text-center text-[10px]">
+            <div className="rounded bg-white px-1 py-1">
+              <dt className="text-text-soft">Acres</dt>
+              <dd className="font-semibold tabular-nums text-text-strong">
+                {acres != null && !Number.isNaN(acres) ? acres.toFixed(2) : "—"}
+              </dd>
+            </div>
+            <div className="rounded bg-white px-1 py-1">
+              <dt className="text-text-soft">Use</dt>
+              <dd className="truncate font-semibold text-text-strong">
+                {useLabel ?? "—"}
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-1.5 text-[9.5px] leading-snug text-text-soft">
+            Approx. OSM polygon — not a legal survey.
+          </p>
+        </>
+      )}
       {brief.land && (
-        <p className="mt-2 text-[10px] leading-snug text-text-soft">
+        <p className="mt-1 text-[10px] leading-snug text-text-soft">
           {brief.land.empty_count} open parcels nearby
           {brief.land.kinds.length
             ? ` · ${brief.land.kinds.slice(0, 2).join(", ")}`

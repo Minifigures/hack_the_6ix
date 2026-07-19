@@ -80,21 +80,25 @@ def _curated_sites(lat: float, lng: float) -> list[dict[str, Any]] | None:
     out: list[dict[str, Any]] = []
     for i, raw in enumerate(_CURATED_TORONTO):
         site_id = f"empty-{_LABELS[i]}"
-        clng, clat = _centroid(raw["ring"])
+        ring = raw["ring"]
+        clng, clat = _centroid(ring)
+        areas = _area_fields(ring)
         out.append(
             {
                 "id": site_id,
                 "label": raw["label"],
                 "kind": raw["kind"],
                 "center": {"lng": clng, "lat": clat},
+                **areas,
                 "polygon": {
                     "type": "Feature",
                     "properties": {
                         "id": site_id,
                         "label": raw["label"],
                         "kind": raw["kind"],
+                        **areas,
                     },
-                    "geometry": {"type": "Polygon", "coordinates": [raw["ring"]]},
+                    "geometry": {"type": "Polygon", "coordinates": [ring]},
                 },
             }
         )
@@ -141,10 +145,36 @@ def _centroid(ring: list[list[float]]) -> tuple[float, float]:
 
 
 def _area_approx(ring: list[list[float]]) -> float:
+    """Degree² shoelace — used only for relative size filtering."""
     a = 0.0
     for i in range(len(ring) - 1):
         a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
     return abs(a) * 0.5
+
+
+_M2_PER_ACRE = 4046.8564224
+
+
+def _area_m2(ring: list[list[float]]) -> float:
+    """Approx polygon area in m² via local equirectangular projection."""
+    if len(ring) < 4:
+        return 0.0
+    _clng, clat = _centroid(ring)
+    cos_lat = math.cos(math.radians(clat)) or 1e-6
+    pts: list[tuple[float, float]] = []
+    for lng, lat in ring:
+        x = (lng - _clng) * 111_320.0 * cos_lat
+        y = (lat - clat) * 111_320.0
+        pts.append((x, y))
+    a = 0.0
+    for i in range(len(pts) - 1):
+        a += pts[i][0] * pts[i + 1][1] - pts[i + 1][0] * pts[i][1]
+    return abs(a) * 0.5
+
+
+def _area_fields(ring: list[list[float]]) -> dict[str, float]:
+    m2 = round(_area_m2(ring), 1)
+    return {"area_m2": m2, "area_acres": round(m2 / _M2_PER_ACRE, 3)}
 
 
 def _offset(lng: float, lat: float, east_m: float, north_m: float) -> tuple[float, float]:
@@ -177,15 +207,22 @@ def _fallback_sites(lat: float, lng: float, limit: int) -> list[dict[str, Any]]:
         label = f"Empty site {_LABELS[i]} (approx.)"
         site_id = f"empty-{_LABELS[i]}"
         ring = _rect(clng, clat, w, h)
+        areas = _area_fields(ring)
         out.append(
             {
                 "id": site_id,
                 "label": label,
                 "kind": "approx",
                 "center": {"lng": clng, "lat": clat},
+                **areas,
                 "polygon": {
                     "type": "Feature",
-                    "properties": {"id": site_id, "label": label, "kind": "approx"},
+                    "properties": {
+                        "id": site_id,
+                        "label": label,
+                        "kind": "approx",
+                        **areas,
+                    },
                     "geometry": {"type": "Polygon", "coordinates": [ring]},
                 },
             }
@@ -265,16 +302,24 @@ def _elements_to_sites(
     for i, (_, raw) in enumerate(scored[:limit]):
         label = f"Empty site {_LABELS[i]} ({raw['kind']})"
         site_id = f"empty-{_LABELS[i]}"
+        ring = raw["ring"]
+        areas = _area_fields(ring)
         out.append(
             {
                 "id": site_id,
                 "label": label,
                 "kind": raw["kind"],
                 "center": {"lng": raw["lng"], "lat": raw["lat"]},
+                **areas,
                 "polygon": {
                     "type": "Feature",
-                    "properties": {"id": site_id, "label": label, "kind": raw["kind"]},
-                    "geometry": {"type": "Polygon", "coordinates": [raw["ring"]]},
+                    "properties": {
+                        "id": site_id,
+                        "label": label,
+                        "kind": raw["kind"],
+                        **areas,
+                    },
+                    "geometry": {"type": "Polygon", "coordinates": [ring]},
                 },
             }
         )

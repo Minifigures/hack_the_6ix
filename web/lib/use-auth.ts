@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { syncAuthUser } from "@/lib/api";
-import { FLAGS } from "@/lib/flags";
+import { useAuth0Flag } from "@/lib/auth-flags";
 import { MFA_KEY, STEP_UP_ACR } from "@/lib/auth0-shared";
 
 const ROLES_CLAIM = "https://innsight.app/roles";
@@ -18,9 +18,10 @@ export interface AuthState {
 }
 
 export function useAuth(): AuthState & { startStepUp: () => void } {
+  const auth0 = useAuth0Flag();
   const [state, setState] = useState<AuthState>({
-    enabled: FLAGS.auth0,
-    loading: FLAGS.auth0,
+    enabled: auth0,
+    loading: auth0,
     loggedIn: false,
     sub: null,
     name: null,
@@ -29,7 +30,15 @@ export function useAuth(): AuthState & { startStepUp: () => void } {
   });
 
   useEffect(() => {
-    if (!FLAGS.auth0) return;
+    setState((s) => ({
+      ...s,
+      enabled: auth0,
+      loading: auth0 ? true : false,
+      ...(auth0
+        ? {}
+        : { loggedIn: false, sub: null, name: null, role: null }),
+    }));
+    if (!auth0) return;
     const verified = localStorage.getItem(MFA_KEY) === "1";
     setState((s) => ({ ...s, mfaVerified: verified }));
 
@@ -87,7 +96,7 @@ export function useAuth(): AuthState & { startStepUp: () => void } {
       window.clearTimeout(timeout);
       window.removeEventListener("storage", onStorage);
     };
-  }, []);
+  }, [auth0]);
 
   const startStepUp = useCallback(() => {
     window.open(

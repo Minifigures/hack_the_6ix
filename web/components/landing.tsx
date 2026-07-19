@@ -1,11 +1,16 @@
 "use client";
 
+import { clearLocalAuthState, loginHref, logoutHref } from "@/lib/auth0-shared";
+import { useAuth } from "@/lib/use-auth";
+
 interface LandingProps {
   onGetStarted: () => void;
   busy?: boolean;
 }
 
 export function Landing({ onGetStarted, busy = false }: LandingProps) {
+  const auth = useAuth();
+
   return (
     <section className="landing relative flex h-full min-h-0 flex-col overflow-hidden text-white">
       <div
@@ -14,6 +19,32 @@ export function Landing({ onGetStarted, busy = false }: LandingProps) {
         aria-hidden="true"
       />
       <div className="landing-veil absolute inset-0" aria-hidden="true" />
+
+      {auth.enabled && (
+        <div className="relative z-10 flex items-center justify-end gap-2 px-6 pt-6 sm:px-12 md:px-16">
+          {auth.loggedIn ? (
+            <>
+              <span className="max-w-[12rem] truncate text-[12px] text-white/70">
+                {auth.name ?? "Signed in"}
+              </span>
+              <a
+                href={logoutHref()}
+                onClick={() => clearLocalAuthState()}
+                className="rounded border border-white/25 px-2.5 py-1 text-[12px] text-white/85 hover:bg-white/10"
+              >
+                Log out
+              </a>
+            </>
+          ) : (
+            <a
+              href={loginHref()}
+              className="rounded border border-white/25 px-2.5 py-1 text-[12px] text-white/85 hover:bg-white/10"
+            >
+              Sign in
+            </a>
+          )}
+        </div>
+      )}
 
       <div className="relative z-10 flex h-full flex-col justify-end px-6 pb-16 pt-10 sm:px-12 sm:pb-20 md:px-16">
         <div className="landing-copy max-w-xl">

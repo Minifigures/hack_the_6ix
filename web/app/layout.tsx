@@ -1,7 +1,12 @@
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
+import { AuthFlagsProvider } from "@/lib/auth-flags";
 import "./globals.css";
+
+function envFlag(value: string | undefined): boolean {
+  return value === "true" || value === "1";
+}
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -25,6 +30,10 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Read from process.env on the server (root `.env` via `npm run dev`).
+  // Do not rely on client-bundled NEXT_PUBLIC alone — that was hiding Sign in.
+  const auth0 = envFlag(process.env.NEXT_PUBLIC_FLAG_AUTH0);
+
   return (
     <html
       lang="en-CA"
@@ -42,7 +51,7 @@ export default function RootLayout({
           } as CSSProperties
         }
       >
-        {children}
+        <AuthFlagsProvider auth0={auth0}>{children}</AuthFlagsProvider>
       </body>
     </html>
   );
