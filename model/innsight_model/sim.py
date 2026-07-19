@@ -24,6 +24,7 @@ import math
 
 from . import benchmarks as B
 from .load_profiles import get_profile
+from .shapes import distribute_rooms, modifiers_for, normalize_shape
 
 M2_PER_SQFT = 0.092903
 
@@ -87,6 +88,11 @@ class OptionResult:
     construction_cost_low: float
     construction_cost_high: float
     notes: tuple[str, ...] = field(default_factory=tuple)
+    # planning massing (optional; estimate modifiers)
+    shape: str = "slab"
+    storeys: int | None = None
+    rooms_per_storey: tuple[int, ...] = ()
+    shape_modifiers: dict[str, float] = field(default_factory=dict)
 
 
 def floor_area_sqft(config: BuildingConfig) -> float:
@@ -333,22 +339,43 @@ def _is_demand_billed(config: BuildingConfig) -> bool:
     return config.building_type != "homestay"
 
 
-def run_option(config: BuildingConfig, scenario: StressScenario) -> OptionResult:
+def run_option(
+    config: BuildingConfig,
+    scenario: StressScenario,
+    *,
+    shape: str | None = "slab",
+    storeys: int | None = None,
+) -> OptionResult:
+    sid = normalize_shape(shape)
+    mods = modifiers_for(sid)
+    facade = mods["facade_area"]
+    circ = mods["circulation"]
+    emb = mods["embodied"]
+
     area = floor_area_sqft(config)
     energy = _annual_energy(config)
-    curve = _hourly_curve(config, scenario, energy)
-    peak = max(curve)
+    # Shape estimate: facade drives peak/thermal load slightly; circulation
+    # scales annual energy use; embodied scales structure carbon/cost.
+    elec_kwh = energy.elec_kwh * circ
+    gas_m3 = energy.gas_m3 * circ
+    curve = tuple(
+        round(kw * facade, 4)
+        for kw in _hourly_curve(config, scenario, energy)
+    )
+    peak = max(curve) if curve else 0.0
     ratio, strain_class = _strain(config, peak)
 
     if _is_demand_billed(config):
         elec_rate = B.ELEC_RATE_COMMERCIAL.value
         gas_rate = B.GAS_RATE_COMMERCIAL.value
-        # Billing demand: nine shoulder months at the typical-weekend peak,
-        # three summer months near the stress peak.
         typical_peak = max(
-            _hourly_curve(config, SCENARIOS["typical_weekend"], energy)
+            kw * facade
+            for kw in _hourly_curve(config, SCENARIOS["typical_weekend"], energy)
         )
-        stress_peak = max(_hourly_curve(config, SCENARIOS["heatwave_full"], energy))
+        stress_peak = max(
+            kw * facade
+            for kw in _hourly_curve(config, SCENARIOS["heatwave_full"], energy)
+        )
         billing_kw = (9.0 * typical_peak + 3.0 * stress_peak) / 12.0
         demand_cost = billing_kw * B.DEMAND_CHARGE_PER_KW_MONTH.value * 12.0
     else:
@@ -356,9 +383,7 @@ def run_option(config: BuildingConfig, scenario: StressScenario) -> OptionResult
         gas_rate = B.GAS_RATE_SMALL.value
         demand_cost = 0.0
 
-    energy_cost = (
-        energy.elec_kwh * elec_rate + energy.gas_m3 * gas_rate + demand_cost
-    )
+    energy_cost = elec_kwh * elec_rate + gas_m3 * gas_rate + demand_cost
     water_m3 = (
         config.rooms
         * 365.0
@@ -368,24 +393,38 @@ def run_option(config: BuildingConfig, scenario: StressScenario) -> OptionResult
     water_cost = water_m3 * B.WATER_RATE.value
 
     op_tco2e = (
-        energy.elec_kwh * B.GRID_INTENSITY_AVG.value / 1e6
-        + energy.gas_m3 * B.GAS_EMISSION_FACTOR.value / 1e3
+        elec_kwh * B.GRID_INTENSITY_AVG.value / 1e6
+        + gas_m3 * B.GAS_EMISSION_FACTOR.value / 1e3
     )
-    embodied_total_kg = area * M2_PER_SQFT * B.EMBODIED_CARBON[config.structure].value
+    embodied_total_kg = (
+        area * M2_PER_SQFT * B.EMBODIED_CARBON[config.structure].value * emb
+    )
     embodied_annual = embodied_total_kg / 1e3 / B.BUILDING_LIFE_YEARS.value
 
     cost, cost_low, cost_high = _construction(config)
+    # Embodied/facade complexity nudges capex (estimate).
+    cost_factor = 1.0 + 0.5 * (emb - 1.0) + 0.25 * (facade - 1.0)
+    cost *= cost_factor
+    cost_low *= cost_factor
+    cost_high *= cost_factor
+
+    n_storeys = int(storeys) if storeys and storeys > 0 else None
+    rooms_per = (
+        tuple(distribute_rooms(config.rooms, n_storeys, sid))
+        if n_storeys
+        else ()
+    )
 
     return OptionResult(
         config=config,
         scenario_name=scenario.name,
         floor_area_sqft=round(area, 1),
         hourly_kw=curve,
-        peak_kw=peak,
+        peak_kw=round(peak, 4),
         strain_ratio=ratio,
         strain_class=strain_class,
-        annual_elec_kwh=round(energy.elec_kwh, 1),
-        annual_gas_m3=round(energy.gas_m3, 1),
+        annual_elec_kwh=round(elec_kwh, 1),
+        annual_gas_m3=round(gas_m3, 1),
         annual_energy_cost=round(energy_cost - demand_cost, 2),
         annual_demand_cost=round(demand_cost, 2),
         annual_water_m3=round(water_m3, 1),
@@ -397,6 +436,19 @@ def run_option(config: BuildingConfig, scenario: StressScenario) -> OptionResult
         construction_cost=round(cost, 0),
         construction_cost_low=round(cost_low, 0),
         construction_cost_high=round(cost_high, 0),
+        notes=(
+            (
+                f"Shape {sid} modifiers are labelled estimates "
+                f"(facade×{facade:.2f}, circulation×{circ:.2f}, embodied×{emb:.2f}); "
+                "GFA still rooms × sqft."
+            ),
+        )
+        if sid != "slab"
+        else (),
+        shape=sid,
+        storeys=n_storeys,
+        rooms_per_storey=rooms_per,
+        shape_modifiers=mods,
     )
 
 
@@ -434,9 +486,12 @@ def compare(
     config_a: BuildingConfig,
     config_b: BuildingConfig,
     scenario: StressScenario,
+    *,
+    shape: str | None = "slab",
+    storeys: int | None = None,
 ) -> Comparison:
-    ra = run_option(config_a, scenario)
-    rb = run_option(config_b, scenario)
+    ra = run_option(config_a, scenario, shape=shape, storeys=storeys)
+    rb = run_option(config_b, scenario, shape=shape, storeys=storeys)
 
     capex_delta = rb.construction_cost - ra.construction_cost
     annual_delta = ra.annual_operating_cost - rb.annual_operating_cost

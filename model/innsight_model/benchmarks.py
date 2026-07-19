@@ -661,3 +661,54 @@ HEATWAVE_EVENT_PEAK_C = _b(
     "diurnal profile peaks at this value. Toronto now averages 14 days over "
     "30 C per year (1991-2020 normals), up from 9.7 (1961-1990).",
 )
+
+# Plan-shape estimate multipliers (relative to rectangular slab = 1.0).
+# Not metered envelope physics — labelled estimates for hospitality massing.
+SHAPE_FACADE_SLAB = _b(
+    "shape_facade_slab",
+    1.0,
+    "factor",
+    "",
+    "Baseline rectangular slab facade area factor.",
+    estimate=True,
+)
+SHAPE_FACADE_L_WING = _b(
+    "shape_facade_l_wing",
+    1.08,
+    "factor",
+    "",
+    "L-wing plan: modest extra facade vs slab (estimate).",
+    estimate=True,
+)
+SHAPE_FACADE_COURTYARD = _b(
+    "shape_facade_courtyard",
+    1.18,
+    "factor",
+    "",
+    "Courtyard plan: higher facade exposure (estimate).",
+    estimate=True,
+)
+SHAPE_FACADE_PODIUM_TOWER = _b(
+    "shape_facade_podium_tower",
+    1.12,
+    "factor",
+    "",
+    "Podium+tower: stepped facade vs slab (estimate).",
+    estimate=True,
+)
+SHAPE_CIRCULATION_COURTYARD = _b(
+    "shape_circulation_courtyard",
+    1.12,
+    "factor",
+    "",
+    "Courtyard circulation / ops overhead vs slab (estimate).",
+    estimate=True,
+)
+SHAPE_EMBODIED_COURTYARD = _b(
+    "shape_embodied_courtyard",
+    1.06,
+    "factor",
+    "",
+    "Courtyard structure embodied premium vs slab (estimate).",
+    estimate=True,
+)

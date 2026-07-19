@@ -145,12 +145,17 @@ def _parallel_compares(
     config_a: BuildingConfig,
     config_b: BuildingConfig,
     scenarios: dict[str, StressScenario] | None = None,
+    *,
+    shape: str | None = "slab",
+    storeys: int | None = None,
 ) -> dict[str, Comparison]:
     pack = scenarios if scenarios is not None else SCENARIOS
     keys = [k for k in YEAR_SCENARIO_KEYS if k in pack]
 
     def _one(key: str) -> tuple[str, Comparison]:
-        return key, compare(config_a, config_b, pack[key])
+        return key, compare(
+            config_a, config_b, pack[key], shape=shape, storeys=storeys
+        )
 
     out: dict[str, Comparison] = {}
     with ThreadPoolExecutor(max_workers=max(1, len(keys))) as pool:
@@ -236,6 +241,8 @@ async def run_briefing(
     provider: LLMProvider | None = None,
     lat: float | None = None,
     lng: float | None = None,
+    storeys: int | None = None,
+    shape: str | None = "slab",
 ) -> BriefingResponse:
     site_lat = DEFAULT_SITE_LAT if lat is None else lat
     site_lng = DEFAULT_SITE_LNG if lng is None else lng
@@ -247,10 +254,26 @@ async def run_briefing(
     config_a, config_b = _build_configs(
         building_type, rooms, structure_a, hvac_a, structure_b, hvac_b
     )
-    comparison = compare(config_a, config_b, pack[scenario])
+    comparison = compare(
+        config_a, config_b, pack[scenario], shape=shape, storeys=storeys
+    )
     ctx = await gather_all(
         comparison, lat=site_lat, lng=site_lng, climate=climate_meta
     )
+    from innsight_model.shapes import distribute_rooms, modifiers_for, normalize_shape
+
+    sid = normalize_shape(shape)
+    ctx["massing"] = {
+        "shape": sid,
+        "storeys": storeys,
+        "rooms": rooms,
+        "rooms_per_storey": (
+            distribute_rooms(rooms, storeys, sid) if storeys else []
+        ),
+        "modifiers": modifiers_for(sid),
+        "status": "estimate",
+        "note": "Shape modifiers are labelled estimates; GFA remains rooms × sqft.",
+    }
     if climate_meta:
         env = ctx.setdefault("environment", {})
         env["heatwave_peak_c"] = climate_meta.get("heatwave_peak_c") or (
@@ -296,6 +319,8 @@ async def run_year_briefing(
     site_name: str = "45 The Esplanade, Toronto",
     lat: float | None = None,
     lng: float | None = None,
+    storeys: int | None = None,
+    shape: str | None = "slab",
 ) -> YearBriefingResponse:
     """Run all year scenarios in parallel; one gather; ~8 Gemini calls total."""
     site_lat = DEFAULT_SITE_LAT if lat is None else lat
@@ -305,7 +330,9 @@ async def run_year_briefing(
         building_type, rooms, structure_a, hvac_a, structure_b, hvac_b
     )
     pack, climate_meta = await _load_location_pack(site_lat, site_lng)
-    comparisons = _parallel_compares(config_a, config_b, pack)
+    comparisons = _parallel_compares(
+        config_a, config_b, pack, shape=shape, storeys=storeys
+    )
     if BASELINE_SCENARIO not in comparisons:
         raise ValueError(f"missing baseline scenario {BASELINE_SCENARIO}")
 
@@ -320,6 +347,20 @@ async def run_year_briefing(
     ctx["matrix_summary"] = truncate_matrix_for_llm(matrix_summary)
     ctx["year_pack"] = True
     ctx["climate"] = climate_meta
+    from innsight_model.shapes import distribute_rooms, modifiers_for, normalize_shape
+
+    sid = normalize_shape(shape)
+    ctx["massing"] = {
+        "shape": sid,
+        "storeys": storeys,
+        "rooms": rooms,
+        "rooms_per_storey": (
+            distribute_rooms(rooms, storeys, sid) if storeys else []
+        ),
+        "modifiers": modifiers_for(sid),
+        "status": "estimate",
+        "note": "Shape modifiers are labelled estimates; GFA remains rooms × sqft.",
+    }
     if climate_meta:
         env = ctx.setdefault("environment", {})
         env["heatwave_peak_c"] = climate_meta.get("heatwave_peak_c") or (

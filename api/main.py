@@ -90,6 +90,11 @@ class CompareRequest(BaseModel):
     structure_b: str = Field(default="mass_timber", pattern="^(concrete|mass_timber|steel)$")
     hvac_b: str = Field(default="heat_pump", pattern="^(central_gas|heat_pump)$")
     auth0_sub: str | None = None
+    storeys: int | None = Field(default=None, ge=1, le=40)
+    shape: str | None = Field(
+        default="slab",
+        pattern="^(slab|l_wing|courtyard|podium_tower)$",
+    )
 
 
 def _scenario(name: str):
@@ -166,7 +171,13 @@ def memo(req: CompareRequest) -> dict[str, object]:
         if req.structure_b == "mass_timber" and req.hvac_b == "heat_pump"
         else f"Option B: {req.structure_b} + {req.hvac_b}",
     )
-    comparison = compare(config_a, config_b, _scenario(req.scenario))
+    comparison = compare(
+        config_a,
+        config_b,
+        _scenario(req.scenario),
+        shape=req.shape,
+        storeys=req.storeys,
+    )
     memo_data = build_memo(comparison, SITE_NAME)
     memo_data["narrative"] = generate_narrative(
         memo_data, (os.environ.get("GEMINI_API_KEY") or "").strip() or None
@@ -197,7 +208,13 @@ def compare_options(req: CompareRequest) -> dict[str, object]:
         if req.structure_b == "mass_timber" and req.hvac_b == "heat_pump"
         else f"Option B: {req.structure_b} + {req.hvac_b}",
     )
-    result = compare(config_a, config_b, _scenario(req.scenario))
+    result = compare(
+        config_a,
+        config_b,
+        _scenario(req.scenario),
+        shape=req.shape,
+        storeys=req.storeys,
+    )
     payload = asdict(result)
     payload["option_a"]["config"] = asdict(result.option_a.config)
     payload["option_b"]["config"] = asdict(result.option_b.config)

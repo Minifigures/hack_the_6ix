@@ -22,6 +22,11 @@ class BriefingRequest(BaseModel):
     auth0_sub: str | None = None
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
+    storeys: int | None = Field(default=None, ge=1, le=40)
+    shape: str | None = Field(
+        default="slab",
+        pattern="^(slab|l_wing|courtyard|podium_tower)$",
+    )
 
 
 class YearBriefingRequest(BaseModel):
@@ -36,6 +41,11 @@ class YearBriefingRequest(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
     site_name: str | None = None
+    storeys: int | None = Field(default=None, ge=1, le=40)
+    shape: str | None = Field(
+        default="slab",
+        pattern="^(slab|l_wing|courtyard|podium_tower)$",
+    )
 
 
 @router.post("/briefing")
@@ -59,6 +69,8 @@ async def briefing(req: BriefingRequest) -> dict:
             include_agents=req.include_agents,
             lat=req.lat,
             lng=req.lng,
+            storeys=req.storeys,
+            shape=req.shape,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -107,6 +119,8 @@ async def briefing_year(req: YearBriefingRequest) -> dict:
             site_name=req.site_name or "45 The Esplanade, Toronto",
             lat=req.lat,
             lng=req.lng,
+            storeys=req.storeys,
+            shape=req.shape,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

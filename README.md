@@ -68,7 +68,8 @@ Honesty first: this table says exactly what is real and what is a labelled simul
 | Memo narrative | Gemini structured output over real computed numbers (single-scenario or year portfolio); deterministic fallback without a key, generator labelled in-UI |
 | Streetscape renders | Illustrative AI imagery, labelled, static fallback disclosed |
 | Community friction score | Documented heuristic (`model/friction.md`), not survey data |
-| Building geometry | Illustrative massing, not permit-ready drawings |
+| Building geometry | Illustrative massing (rooms × storeys × shape); MapLibre rings + Pixi levels track storeys/shape; not permit-ready drawings |
+| Plan-shape modifiers | Labelled estimates (`slab` / `l_wing` / `courtyard` / `podium_tower` facade, circulation, embodied factors); GFA still `rooms × SQFT_PER_ROOM`; room-per-storey distribution is derived, not surveyed |
 | Grid strain class | Published factors as a proxy, not utility telemetry |
 | Pixel viewport | Visualization driven by real sim outputs, decorative art style |
 

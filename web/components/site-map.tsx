@@ -7,6 +7,7 @@ import {
   candidatesToFeatureCollection,
   type CandidateSite,
 } from "@/lib/candidate-sites";
+import { getShape, type ShapeId } from "@/lib/building-shape";
 import type { ActiveSite } from "@/lib/site";
 import type { Structure } from "@/lib/types";
 
@@ -67,7 +68,9 @@ function insetPolygon(
 
 export interface BuildingSpec {
   structure: Structure;
+  /** Storey count (UI "Floors"). */
   floors: number;
+  shapeId?: ShapeId;
 }
 
 interface SiteMapProps {
@@ -91,9 +94,11 @@ export function SiteMap({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
   const buildingRef = useRef<BuildingSpec | null>(building);
+  const activeSiteRef = useRef(activeSite);
   const candidatesRef = useRef(candidates);
   const onSelectRef = useRef(onSelectCandidate);
   buildingRef.current = building;
+  activeSiteRef.current = activeSite;
   candidatesRef.current = candidates;
   onSelectRef.current = onSelectCandidate;
 
@@ -121,7 +126,7 @@ export function SiteMap({
       map.addSource("site", { type: "geojson", data: activeSite.polygon });
       map.addSource("building", {
         type: "geojson",
-        data: insetPolygon(activeSite.polygon, 0.72),
+        data: { type: "FeatureCollection", features: [] },
       });
 
       map.addSource("context-buildings", {
@@ -177,21 +182,10 @@ export function SiteMap({
         type: "fill-extrusion",
         source: "building",
         paint: {
-          "fill-extrusion-color": "#9aa5b1",
-          "fill-extrusion-height": 0,
-          "fill-extrusion-opacity": 0.96,
-          "fill-extrusion-vertical-gradient": true,
-        },
-      });
-      map.addLayer({
-        id: "building-shell",
-        type: "fill-extrusion",
-        source: "building",
-        paint: {
-          "fill-extrusion-color": "#f4f8fc",
-          "fill-extrusion-height": 0,
-          "fill-extrusion-base": 0,
-          "fill-extrusion-opacity": 0.55,
+          "fill-extrusion-color": ["get", "colour"],
+          "fill-extrusion-base": ["get", "base"],
+          "fill-extrusion-height": ["get", "height"],
+          "fill-extrusion-opacity": 0.92,
           "fill-extrusion-vertical-gradient": true,
         },
       });
@@ -210,7 +204,7 @@ export function SiteMap({
       });
 
       readyRef.current = true;
-      syncBuilding(map, buildingRef.current);
+      syncBuilding(map, buildingRef.current, activeSite.polygon);
     });
 
     return () => {
@@ -231,12 +225,8 @@ export function SiteMap({
       duration: 1400,
     });
     const siteSrc = map.getSource("site") as maplibregl.GeoJSONSource | undefined;
-    const buildingSrc = map.getSource(
-      "building",
-    ) as maplibregl.GeoJSONSource | undefined;
     siteSrc?.setData(activeSite.polygon);
-    buildingSrc?.setData(insetPolygon(activeSite.polygon, 0.72));
-    syncBuilding(map, buildingRef.current);
+    syncBuilding(map, buildingRef.current, activeSite.polygon);
   }, [activeSite]);
 
   useEffect(() => {
@@ -248,7 +238,9 @@ export function SiteMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (map && readyRef.current) syncBuilding(map, building);
+    if (map && readyRef.current) {
+      syncBuilding(map, building, activeSiteRef.current.polygon);
+    }
   }, [building]);
 
   const selectedLabel =
@@ -300,18 +292,38 @@ async function loadContextBuildings(
   }
 }
 
-function syncBuilding(map: maplibregl.Map, building: BuildingSpec | null) {
-  if (!map.getLayer("building-mass") || !map.getLayer("building-shell")) return;
-  // Zero-height extrusions still paint a flat slab; hide the layers instead.
-  const visibility = building ? "visible" : "none";
-  map.setLayoutProperty("building-mass", "visibility", visibility);
-  map.setLayoutProperty("building-shell", "visibility", visibility);
-  if (!building) return;
-  const total = building.floors * 3.4;
-  const lower = total * 0.55;
+function syncBuilding(
+  map: maplibregl.Map,
+  building: BuildingSpec | null,
+  parcel: GeoJSON.Feature<GeoJSON.Polygon>,
+) {
+  if (!map.getLayer("building-mass")) return;
+  const src = map.getSource("building") as maplibregl.GeoJSONSource | undefined;
+  if (!src) return;
+
+  if (!building) {
+    map.setLayoutProperty("building-mass", "visibility", "none");
+    src.setData({ type: "FeatureCollection", features: [] });
+    return;
+  }
+
+  const shape = getShape(building.shapeId ?? "slab");
+  const rings = shape.massing(building.floors);
   const colour = STRUCTURE_COLOUR[building.structure];
-  map.setPaintProperty("building-mass", "fill-extrusion-height", lower);
-  map.setPaintProperty("building-mass", "fill-extrusion-color", colour);
-  map.setPaintProperty("building-shell", "fill-extrusion-base", lower);
-  map.setPaintProperty("building-shell", "fill-extrusion-height", total);
+  const metrePerStorey = 3.4;
+  const features = rings.map((ring, i) => {
+    const poly = insetPolygon(parcel, ring.inset);
+    return {
+      type: "Feature" as const,
+      properties: {
+        colour,
+        base: ring.fromLevel * metrePerStorey,
+        height: ring.toLevel * metrePerStorey,
+        ring: i,
+      },
+      geometry: poly.geometry,
+    };
+  });
+  src.setData({ type: "FeatureCollection", features });
+  map.setLayoutProperty("building-mass", "visibility", "visible");
 }
