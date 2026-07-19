@@ -9,11 +9,15 @@ _API_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _API_DIR.parent
 load_dotenv(_REPO_ROOT / ".env")
 
-# Make `import app...` reliable when cwd is not api/.
+# Make `import app...` and `import innsight_model...` reliable on Render
+# (Root Directory = api/) and when cwd is not the repo root.
 import sys
 
 if str(_API_DIR) not in sys.path:
     sys.path.insert(0, str(_API_DIR))
+_MODEL_DIR = _REPO_ROOT / "model"
+if _MODEL_DIR.is_dir() and str(_MODEL_DIR) not in sys.path:
+    sys.path.insert(0, str(_MODEL_DIR))
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,19 +54,25 @@ SITE_NAME = "45 The Esplanade"
 
 app = FastAPI(title="INNSIGHT API", version=MODEL_VERSION)
 
+# Local + deployed Vercel origin. ALLOWED_ORIGINS (comma-separated, no
+# trailing slashes) is merged on top so Render can add more without dropping these.
 _default_origins = (
-    "http://localhost:3000,http://localhost:3001,"
-    "http://127.0.0.1:3000,http://127.0.0.1:3001"
+    "http://localhost:3000,"
+    "http://localhost:3001,"
+    "http://127.0.0.1:3000,"
+    "http://127.0.0.1:3001,"
+    "https://hack-the-6ix-tawny.vercel.app"
+)
+_allowed_origins = list(
+    dict.fromkeys(
+        o.strip()
+        for o in f"{_default_origins},{os.environ.get('ALLOWED_ORIGINS', '')}".split(",")
+        if o.strip()
+    )
 )
 app.add_middleware(
     CORSMiddleware,
-    # Deployed frontends join via ALLOWED_ORIGINS (comma-separated, no
-    # trailing slashes), e.g. the Vercel URL on Render.
-    allow_origins=[
-        o.strip()
-        for o in os.environ.get("ALLOWED_ORIGINS", _default_origins).split(",")
-        if o.strip()
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
