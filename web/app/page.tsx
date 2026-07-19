@@ -9,6 +9,7 @@ import {
   type UiBuildingType,
 } from "@/components/design-panel";
 import { Landing } from "@/components/landing";
+import { ChatPanel } from "@/components/chat-panel";
 import { MemoView } from "@/components/memo-view";
 import { PastRunsPanel } from "@/components/past-runs-panel";
 import { PhysicsLog } from "@/components/physics-log";
@@ -367,9 +368,7 @@ export default function HomePage() {
       setPlaced(false);
       invalidate();
       const acres =
-        site.area_acres != null
-          ? `${site.area_acres} ac`
-          : null;
+        site.area_acres != null ? `${site.area_acres} ac` : null;
       appendLog(
         `Selected ${site.label}${acres ? ` · ${acres}` : ""}, open land (not a building/road).`,
       );
@@ -689,6 +688,16 @@ export default function HomePage() {
           onSetType={handleVoiceType}
           onRunStressTest={handleRunStressTest}
           explainMemo={explainMemo}
+        />
+      )}
+      {FLAGS.chat && (
+        <ChatPanel
+          memo={memo}
+          briefs={briefs}
+          synthesis={synthesis}
+          siteName={activeSite.name}
+          siteLat={activeSite.lat}
+          siteLng={activeSite.lng}
         />
       )}
       <div className="relative flex min-h-0 flex-1">

@@ -7,6 +7,7 @@ from app.auth import current_sub, enforcement_on
 from pydantic import BaseModel, Field
 
 from app.agents.orchestrator import ALL_AGENT_IDS, run_briefing, run_year_briefing
+from app.agents.chat import ChatRequest, answer_chat
 
 router = APIRouter()
 
@@ -266,3 +267,9 @@ async def briefing_year(
         },
     )
     return {**payload, "from_cache": False}
+
+
+@router.post("/chat")
+async def chat(req: ChatRequest) -> dict:
+    """App-scoped Q&A grounded on handbook chunks + optional live memo."""
+    return answer_chat(req).model_dump()

@@ -1,12 +1,16 @@
 import path from "path";
+import fs from "fs";
 import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 
-// Single source of truth: repo-root `.env` (not web/.env.local).
-loadEnvConfig(path.join(__dirname, ".."));
+// Local: load repo-root `.env` when present. On Vercel the file is absent —
+// platform env vars are already in process.env.
+const rootDir = path.join(__dirname, "..");
+if (fs.existsSync(path.join(rootDir, ".env")) || fs.existsSync(rootDir)) {
+  loadEnvConfig(rootDir);
+}
 
-// Explicitly expose NEXT_PUBLIC_* so the client bundle always sees root flags
-// (Auth0 Sign in / Log out depends on NEXT_PUBLIC_FLAG_AUTH0).
+// Expose NEXT_PUBLIC_* into the client bundle (flags, API base, etc.).
 const publicEnv = Object.fromEntries(
   Object.entries(process.env).filter(([key]) => key.startsWith("NEXT_PUBLIC_")),
 );

@@ -222,3 +222,22 @@ export function syncAuthUser(user: {
     role: user.role ?? null,
   });
 }
+
+export interface ChatReply {
+  reply: string;
+  citations: string[];
+  generator: string;
+  fallback_reason?: string | null;
+}
+
+/** App-scoped chat grounded on handbook + optional live memo. */
+export function sendChatMessage(body: {
+  message: string;
+  history?: { role: "user" | "assistant"; content: string }[];
+  memo?: Memo;
+  briefs?: Briefing["briefs"] | YearBriefing["briefs"];
+  synthesis?: Briefing["synthesis"] | YearBriefing["synthesis"];
+  site?: { name?: string; lat?: number; lng?: number };
+}): Promise<ChatReply> {
+  return post<ChatReply>("/chat", body);
+}

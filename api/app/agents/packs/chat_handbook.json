@@ -1,0 +1,52 @@
+{
+  "chunks": [
+    {
+      "id": "product",
+      "title": "What INN-SIGHT is",
+      "keywords": ["innsight", "product", "app", "what is", "overview", "consultant"],
+      "text": "INN-SIGHT helps hospitality designers stress-test hotel, homestay, and B&B options on a real map pin before building. You pick a site, assemble Option A vs Option B (structure + HVAC), run year stress, and get an investor-style memo with sourced numbers. Core kWh, cost, and CO2 come from a deterministic model (benchmarks + sim), not from inventing values in chat."
+    },
+    {
+      "id": "stress",
+      "title": "How year stress works",
+      "keywords": ["stress", "year pack", "weekend", "heat", "cold", "era5", "weather", "peak", "strain", "48h"],
+      "text": "Run year stress simulates five extreme 48-hour weekends (heat-wave, summer shoulder, typical July, typical winter, deep cold)—not a full 8760h year. Outdoor temps prefer Open-Meteo ERA5 historical data for the selected lat/lng; if that fails, curated Toronto curves are used and labelled as fallback. Peak kW and STABLE/ELEVATED/CRITICAL strain come from the sim engine for Option A and B."
+    },
+    {
+      "id": "options",
+      "title": "Option A vs Option B",
+      "keywords": ["option a", "option b", "concrete", "timber", "heat pump", "hvac", "recommend", "abatement"],
+      "text": "Option A is typically concrete + central gas HVAC. Option B is typically mass timber + heat pumps. The memo recommends the greener option when implied carbon abatement cost is at or below Canada's federal ~$170/tCO2e benchmark; otherwise it may keep the cheaper path. Always cite the memo's comparison and recommendation fields when answering—do not invent new numbers."
+    },
+    {
+      "id": "acres",
+      "title": "Parcel acres and land use",
+      "keywords": ["acres", "area", "parcel", "land", "osm", "survey", "parking", "brownfield"],
+      "text": "Acres and land-use kind come from the selected OpenStreetMap empty-parcel polygon (approx. footprint). This is not a legal survey or vacant-lot registry. Approx pads may show acres without a tagged use."
+    },
+    {
+      "id": "climate",
+      "title": "Live site climate",
+      "keywords": ["climate", "weather", "temperature", "humidity", "wind", "elevation", "open-meteo"],
+      "text": "Site climate (temp, humidity, wind, elevation) is live Open-Meteo forecast for the active pin. It is separate from the historical ERA5 curves used inside the stress engine."
+    },
+    {
+      "id": "memo",
+      "title": "Investor memo",
+      "keywords": ["memo", "narrative", "footnote", "explain", "summary", "caveat", "investor"],
+      "text": "The investor memo packs deterministic sim results: A/B costs, carbon, peak strain, recommendation, reasoning chain, narrative, and footnotes to benchmark sources. Gemini may write narrative prose over those numbers; without a key, a deterministic fallback narrative is used. Chat must only explain numbers present in the provided memo context."
+    },
+    {
+      "id": "honesty",
+      "title": "Honesty ledger",
+      "keywords": ["honest", "real", "simulated", "estimate", "benchmark", "source"],
+      "text": "INN-SIGHT labels estimates vs sourced benchmarks. Friction scores are heuristics, not surveys. Green parcels are OSM open land, not a legal registry. Annual energy uses CBECS-style intensities; stress windows are 48h extremes, not metered bills for the exact building."
+    },
+    {
+      "id": "auth",
+      "title": "Sign-in",
+      "keywords": ["sign in", "login", "auth0", "google", "logout", "account"],
+      "text": "When Auth0 is enabled, Google sign-in creates/syncs a profile. Past runs can be stored per user. Chat cannot change auth settings."
+    }
+  ]
+}

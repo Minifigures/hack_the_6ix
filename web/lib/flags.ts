@@ -10,6 +10,7 @@ export const FLAGS = {
   voice: flag(process.env.NEXT_PUBLIC_FLAG_VOICE),
   pixel: flag(process.env.NEXT_PUBLIC_FLAG_PIXEL),
   agents: flag(process.env.NEXT_PUBLIC_FLAG_AGENTS),
+  chat: flag(process.env.NEXT_PUBLIC_FLAG_CHAT),
 } as const;
 
 export const API_BASE =
