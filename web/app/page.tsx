@@ -677,16 +677,14 @@ export default function HomePage() {
           explainMemo={explainMemo}
         />
       )}
-      {FLAGS.chat && (
-        <ChatPanel
-          memo={memo}
-          briefs={briefs}
-          synthesis={synthesis}
-          siteName={activeSite.name}
-          siteLat={activeSite.lat}
-          siteLng={activeSite.lng}
-        />
-      )}
+      <ChatPanel
+        memo={memo}
+        briefs={briefs}
+        synthesis={synthesis}
+        siteName={activeSite.name}
+        siteLat={activeSite.lat}
+        siteLng={activeSite.lng}
+      />
       <div className="relative flex min-h-0 flex-1">
         <IconRail />
 

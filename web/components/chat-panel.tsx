@@ -102,7 +102,7 @@ export function ChatPanel({
   );
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex flex-col items-end gap-2">
       {open && (
         <div className="pointer-events-auto flex h-[min(420px,70vh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-panel-border bg-panel shadow-xl">
           <header className="flex items-center justify-between border-b border-panel-border px-3 py-2">
@@ -186,7 +186,7 @@ export function ChatPanel({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="pointer-events-auto rounded-full border border-ink-border bg-ink px-4 py-2.5 text-[12px] font-semibold text-white shadow-lg hover:bg-ink-raised"
+        className="pointer-events-auto rounded-full border-2 border-accent bg-ink px-4 py-2.5 text-[13px] font-semibold text-accent shadow-lg hover:bg-ink-raised"
       >
         {open ? "Hide chat" : "Ask INN-SIGHT"}
       </button>
