@@ -26,6 +26,7 @@ import {
   OPTION_PRESETS,
   deriveHvac,
   deriveStructure,
+  optionSummary,
   structureLog,
   type BuildComponents,
 } from "@/lib/build-config";
@@ -460,13 +461,10 @@ export default function HomePage() {
   const handleOptionChange = useCallback(
     (key: OptionKey) => {
       setOption(key);
-      appendLog(
-        key === "A"
-          ? "Option A active: concrete-mass hybrid, central gas plant."
-          : "Option B active: mass timber frame, heat pumps.",
-      );
+      const summary = optionSummary(componentsByOption[key]);
+      appendLog(`Option ${key} active: ${summary}.`);
     },
-    [appendLog],
+    [appendLog, componentsByOption],
   );
 
   const handleComponentChange = useCallback(
@@ -642,10 +640,7 @@ export default function HomePage() {
     kind: selectedCandidate?.kind,
   };
 
-  const optionLabel =
-    option === "A"
-      ? "Option A: Concrete + Central HVAC"
-      : "Option B: Mass Timber + Heat Pumps";
+  const optionLabel = `Option ${option}: ${optionSummary(activeComponents)}`;
   const logEntries = placed
     ? [
         ...structureLog(activeComponents, storeys, optionLabel),
@@ -705,6 +700,7 @@ export default function HomePage() {
           shapeId={shapeId}
           option={option}
           components={activeComponents}
+          componentsByOption={componentsByOption}
           running={running}
           areaBrief={areaBrief}
           areaLoading={areaLoading}

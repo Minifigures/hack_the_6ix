@@ -7,7 +7,7 @@ import {
   type LocalRing,
   type MeshBuildingSpec,
 } from "@/lib/building-mesh";
-import { getShape } from "@/lib/building-shape";
+import { getShape, type PlanCut } from "@/lib/building-shape";
 
 const LAYER_ID = "modular-building-three";
 
@@ -20,6 +20,8 @@ type LayerState = {
   origin: [number, number];
   altitude: number;
 };
+
+type LocalPt = { x: number; z: number };
 
 function openRing(ring: GeoJSON.Position[]): GeoJSON.Position[] {
   if (
@@ -45,6 +47,105 @@ function insetRing(
   ]);
 }
 
+function toLocal(
+  ring: GeoJSON.Position[],
+  originLng: number,
+  originLat: number,
+): LocalPt[] {
+  return ring.map(([lng, lat]) =>
+    lngLatToLocalMetres(lng, lat, originLng, originLat),
+  );
+}
+
+/**
+ * Build an L in the parcel's own edge frame (first edge = long axis),
+ * so it follows the street grid instead of a north-south AABB.
+ */
+function cutLWing(points: LocalPt[]): LocalPt[] {
+  if (points.length < 3) return points;
+  const o = points[0];
+  let ux = points[1].x - o.x;
+  let uz = points[1].z - o.z;
+  const edgeLen = Math.hypot(ux, uz) || 1;
+  ux /= edgeLen;
+  uz /= edgeLen;
+  const vx = -uz;
+  const vz = ux;
+
+  let minU = Infinity;
+  let maxU = -Infinity;
+  let minV = Infinity;
+  let maxV = -Infinity;
+  for (const p of points) {
+    const du = (p.x - o.x) * ux + (p.z - o.z) * uz;
+    const dv = (p.x - o.x) * vx + (p.z - o.z) * vz;
+    minU = Math.min(minU, du);
+    maxU = Math.max(maxU, du);
+    minV = Math.min(minV, dv);
+    maxV = Math.max(maxV, dv);
+  }
+
+  const midU = minU + (maxU - minU) * 0.48;
+  const midV = minV + (maxV - minV) * 0.48;
+
+  // L: full bar along u at low v, plus wing along v at low u.
+  const corners: Array<[number, number]> = [
+    [minU, minV],
+    [maxU, minV],
+    [maxU, midV],
+    [midU, midV],
+    [midU, maxV],
+    [minU, maxV],
+  ];
+
+  return corners.map(([u, v]) => ({
+    x: o.x + ux * u + vx * v,
+    z: o.z + uz * u + vz * v,
+  }));
+}
+
+/** Slender tower pad toward parcel centroid (podium upper). */
+function cutTower(points: LocalPt[]): LocalPt[] {
+  if (points.length < 3) return points;
+  const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
+  const cz = points.reduce((s, p) => s + p.z, 0) / points.length;
+  return points.map((p) => ({
+    x: cx + (p.x - cx) * 0.42,
+    z: cz + (p.z - cz) * 0.42,
+  }));
+}
+
+/** Inner courtyard hole, ~35% of footprint toward center. */
+function cutCourtyardHole(points: LocalPt[]): LocalPt[] {
+  if (points.length < 3) return [];
+  const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
+  const cz = points.reduce((s, p) => s + p.z, 0) / points.length;
+  // Reverse winding for a hole.
+  return points
+    .map((p) => ({
+      x: cx + (p.x - cx) * 0.38,
+      z: cz + (p.z - cz) * 0.38,
+    }))
+    .reverse();
+}
+
+function applyPlan(
+  points: LocalPt[],
+  plan: PlanCut | undefined,
+): { points: LocalPt[]; hole?: LocalPt[] } {
+  switch (plan) {
+    case "l_wing":
+      return { points: cutLWing(points) };
+    case "tower":
+      return { points: cutTower(points) };
+    case "courtyard":
+      return { points, hole: cutCourtyardHole(points) };
+    case "full":
+    default:
+      return { points };
+  }
+}
+
 function buildLocalRings(
   parcel: GeoJSON.Feature<GeoJSON.Polygon>,
   spec: MeshBuildingSpec,
@@ -57,11 +158,11 @@ function buildLocalRings(
 
   return massing.map((ring) => {
     const inset = insetRing(exterior, ring.inset);
-    const points = inset.map(([lng, lat]) =>
-      lngLatToLocalMetres(lng, lat, originLng, originLat),
-    );
+    const base = toLocal(inset, originLng, originLat);
+    const cut = applyPlan(base, ring.plan ?? "full");
     return {
-      points,
+      points: cut.points,
+      hole: cut.hole,
       fromLevel: ring.fromLevel,
       toLevel: ring.toLevel,
     };

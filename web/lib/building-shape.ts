@@ -7,6 +7,9 @@ labelled estimate multipliers.
 
 export type ShapeId = "slab" | "l_wing" | "courtyard" | "podium_tower";
 
+/** How a massing ring cuts the parcel footprint. */
+export type PlanCut = "full" | "l_wing" | "tower" | "courtyard";
+
 export interface ShapeModifiers {
   facade_area: number;
   circulation: number;
@@ -20,6 +23,8 @@ export interface MassingRing {
   fromLevel: number;
   /** Exclusive upper storey index. */
   toLevel: number;
+  /** Footprint cut — defaults to full inset parcel. */
+  plan?: PlanCut;
 }
 
 export interface BuildingShape {
@@ -103,11 +108,14 @@ export const BUILDING_SHAPES: Record<ShapeId, BuildingShape> = {
     },
     massing(storeys) {
       const n = clampStoreys(storeys);
-      if (n <= 2) return [{ inset: 0.92, fromLevel: 0, toLevel: n }];
+      if (n <= 2) {
+        return [{ inset: 0.92, fromLevel: 0, toLevel: n, plan: "l_wing" }];
+      }
       const split = Math.max(1, Math.ceil(n * 0.55));
       return [
-        { inset: 0.94, fromLevel: 0, toLevel: split },
-        { inset: 0.62, fromLevel: split, toLevel: n },
+        { inset: 0.94, fromLevel: 0, toLevel: split, plan: "l_wing" },
+        // Upper floors keep the L but pull in slightly (shorter wing feel).
+        { inset: 0.78, fromLevel: split, toLevel: n, plan: "l_wing" },
       ];
     },
   },
@@ -122,7 +130,7 @@ export const BUILDING_SHAPES: Record<ShapeId, BuildingShape> = {
     },
     massing(storeys) {
       const n = clampStoreys(storeys);
-      return [{ inset: 0.92, fromLevel: 0, toLevel: n }];
+      return [{ inset: 0.92, fromLevel: 0, toLevel: n, plan: "courtyard" }];
     },
   },
   podium_tower: {
@@ -139,11 +147,11 @@ export const BUILDING_SHAPES: Record<ShapeId, BuildingShape> = {
     },
     massing(storeys) {
       const n = clampStoreys(storeys);
-      if (n <= 2) return [{ inset: 0.92, fromLevel: 0, toLevel: n }];
+      if (n <= 2) return [{ inset: 0.92, fromLevel: 0, toLevel: n, plan: "full" }];
       const podium = Math.max(1, Math.ceil(n * 0.4));
       return [
-        { inset: 0.94, fromLevel: 0, toLevel: podium },
-        { inset: 0.55, fromLevel: podium, toLevel: n },
+        { inset: 0.94, fromLevel: 0, toLevel: podium, plan: "full" },
+        { inset: 0.55, fromLevel: podium, toLevel: n, plan: "tower" },
       ];
     },
   },

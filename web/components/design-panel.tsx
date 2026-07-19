@@ -5,6 +5,7 @@ import { ComponentIcon, TypeIcon } from "@/components/component-icons";
 import type { AreaBrief } from "@/components/area-brief-panel";
 import {
   COMPONENT_LABELS,
+  optionSummary,
   type BuildComponents,
 } from "@/lib/build-config";
 import {
@@ -72,6 +73,7 @@ interface DesignPanelProps {
   shapeId: ShapeId;
   option: OptionKey;
   components: BuildComponents;
+  componentsByOption: Record<OptionKey, BuildComponents>;
   running: boolean;
   areaBrief: AreaBrief | null;
   areaLoading: boolean;
@@ -101,6 +103,7 @@ export function DesignPanel({
   shapeId,
   option,
   components,
+  componentsByOption,
   running,
   areaBrief,
   areaLoading,
@@ -303,13 +306,13 @@ export function DesignPanel({
                 <PresetButton
                   active={option === "A"}
                   label="Option A"
-                  sub="Concrete + Central"
+                  sub={optionSummary(componentsByOption.A)}
                   onClick={() => onOptionChange("A")}
                 />
                 <PresetButton
                   active={option === "B"}
                   label="Option B"
-                  sub="Timber + Heat Pumps"
+                  sub={optionSummary(componentsByOption.B)}
                   onClick={() => onOptionChange("B")}
                 />
               </div>

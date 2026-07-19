@@ -55,6 +55,18 @@ export function deriveHvac(c: BuildComponents): Hvac {
   return c.energy === "heat_pump" ? "heat_pump" : "central_gas";
 }
 
+/** Short Option A/B subtitle from live components (not a fixed preset blurb). */
+export function optionSummary(c: BuildComponents): string {
+  const structure =
+    c.mainStructure === "timber" || c.floors === "mass_timber"
+      ? "Timber"
+      : c.mainStructure === "steel_brace"
+        ? "Steel"
+        : "Concrete";
+  const energy = c.energy === "heat_pump" ? "Heat pumps" : "Central plant";
+  return `${structure} · ${energy}`;
+}
+
 export interface LogEntry {
   kind: "warning" | "confirm";
   text: string;
