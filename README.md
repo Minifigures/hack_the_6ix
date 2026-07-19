@@ -23,7 +23,7 @@ python3.11 -m venv .venv && .venv/bin/pip install -r api/requirements.txt
 cd web && npm install && npm run dev
 ```
 
-Put secrets in a **single repo-root `.env`** (never commit it). Do not use `web/.env.local` or `api/.env` — both the Next.js app (`web/next.config.ts`) and FastAPI (`api/main.py`) load only that file. Every integration is feature-flagged; the core loop runs with no keys at all.
+Put secrets in a **single repo-root `.env`** (never commit it); FastAPI and the Next.js server read it directly. One exception: the Next.js middleware (which mounts the `/auth/*` routes) can only read env files inside `web/`, so after editing the root `.env` run `python3 scripts/sync-web-env.py` to mirror the auth keys into a gitignored `web/.env.local`. If `/auth/login` returns 404, that mirror is missing or empty. Every integration is feature-flagged; the core loop runs with no keys at all.
 
 Auth0 example keys in that same file:
 
