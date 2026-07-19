@@ -10,6 +10,8 @@ export interface PixelViewportProps {
   strainClass: "STABLE" | "ELEVATED" | "CRITICAL";
   rooms: number;
   colour: string;
+  storeys?: number;
+  shapeId?: string;
 }
 
 const VIEW_W = 360;
@@ -76,7 +78,14 @@ function hourLabel(index: number): string {
   return `${day} ${hour}:00`;
 }
 
-function buildingLevels(rooms: number): number {
+function buildingLevels(
+  rooms: number,
+  storeys?: number,
+  shapeId?: string,
+): number {
+  if (storeys != null && storeys > 0) return Math.max(2, Math.min(12, storeys));
+  // Legacy buckets when storeys not provided.
+  void shapeId;
   if (rooms <= 12) return 2;
   if (rooms <= 80) return 4;
   return 7;
@@ -89,6 +98,8 @@ export function PixelViewport({
   strainClass,
   rooms,
   colour,
+  storeys,
+  shapeId,
 }: PixelViewportProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
@@ -150,7 +161,7 @@ export function PixelViewport({
       const glow = new Graphics();
       scene.addChild(glow);
       const glowColour = STRAIN_COLOURS[strainClass];
-      const levels = buildingLevels(rooms);
+      const levels = buildingLevels(rooms, storeys, shapeId);
       const buildingTopY = -levels * BLOCK_H;
       const redrawGlow = (fraction: number): void => {
         const a = 0.1 + 0.32 * clamp01(fraction);
@@ -377,7 +388,7 @@ export function PixelViewport({
         }
       }
     };
-  }, [hourlyKw, peakKw, occupancy, strainClass, rooms, colour]);
+  }, [hourlyKw, peakKw, occupancy, strainClass, rooms, colour, storeys, shapeId]);
 
   return (
     <div

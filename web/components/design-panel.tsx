@@ -7,6 +7,13 @@ import {
   COMPONENT_LABELS,
   type BuildComponents,
 } from "@/lib/build-config";
+import {
+  SHAPE_IDS,
+  avgRoomsPerStorey,
+  getShape,
+  storeysRange,
+  type ShapeId,
+} from "@/lib/building-shape";
 import type { OptionKey } from "@/lib/types";
 
 export type UiBuildingType = "hotel" | "homestay" | "bnb";
@@ -37,7 +44,11 @@ const COMPONENT_SECTIONS: {
     field: "mainStructure",
     options: ["timber", "steel_brace"],
   },
-  { title: "Floors", field: "floors", options: ["mass_timber", "hollow_core"] },
+  {
+    title: "Floor structure",
+    field: "floors",
+    options: ["mass_timber", "hollow_core"],
+  },
   {
     title: "Facade",
     field: "facade",
@@ -55,6 +66,8 @@ interface DesignPanelProps {
   siteName: string;
   uiType: UiBuildingType;
   rooms: number;
+  storeys: number;
+  shapeId: ShapeId;
   option: OptionKey;
   components: BuildComponents;
   running: boolean;
@@ -63,6 +76,8 @@ interface DesignPanelProps {
   onPlace: () => void;
   onTypeChange: (type: UiBuildingType) => void;
   onRoomsChange: (rooms: number) => void;
+  onStoreysChange: (storeys: number) => void;
+  onShapeChange: (shapeId: ShapeId) => void;
   onOptionChange: (option: OptionKey) => void;
   onComponentChange: (field: keyof BuildComponents, value: string) => void;
   onRunStressTest: () => void;
@@ -78,6 +93,8 @@ export function DesignPanel({
   siteName,
   uiType,
   rooms,
+  storeys,
+  shapeId,
   option,
   components,
   running,
@@ -86,6 +103,8 @@ export function DesignPanel({
   onPlace,
   onTypeChange,
   onRoomsChange,
+  onStoreysChange,
+  onShapeChange,
   onOptionChange,
   onComponentChange,
   onRunStressTest,
@@ -93,6 +112,10 @@ export function DesignPanel({
   const [openSections, setOpenSections] = useState<Set<string>>(
     () => new Set(["Foundation"]),
   );
+  const shape = getShape(shapeId);
+  const distribution = shape.distribute(rooms, storeys);
+  const storeyBounds = storeysRange(uiType);
+  const avgRooms = avgRoomsPerStorey(rooms, storeys);
 
   const toggleSection = (title: string) => {
     setOpenSections((prev) => {
@@ -180,6 +203,86 @@ export function DesignPanel({
                   onChange={(e) => onRoomsChange(Number(e.target.value))}
                   className="mt-0.5 w-full accent-[#5B9BD5]"
                 />
+              </div>
+              <div className="mt-2">
+                <label
+                  htmlFor="storeys-slider"
+                  className="text-[10.5px] font-medium text-text-soft"
+                >
+                  Floors (storeys):{" "}
+                  <span className="font-semibold text-text-strong">
+                    {storeys}
+                  </span>
+                </label>
+                <input
+                  id="storeys-slider"
+                  type="range"
+                  disabled={running}
+                  min={storeyBounds.min}
+                  max={storeyBounds.max}
+                  value={storeys}
+                  onChange={(e) => onStoreysChange(Number(e.target.value))}
+                  className="mt-0.5 w-full accent-[#5B9BD5]"
+                />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-[10.5px] font-medium text-text-soft">
+                  Shape
+                </span>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  {SHAPE_IDS.map((id) => {
+                    const s = getShape(id);
+                    const active = shapeId === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        disabled={running}
+                        title={s.blurb}
+                        onClick={() => onShapeChange(id)}
+                        className={`rounded-md border px-1.5 py-1.5 text-left transition-colors ${
+                          active
+                            ? "border-[#5B9BD5] bg-[#EAF4FB]"
+                            : "border-panel-border hover:bg-panel-muted"
+                        }`}
+                      >
+                        <svg
+                          viewBox="0 0 40 40"
+                          className="mx-auto h-9 w-9 text-text-strong"
+                          aria-hidden
+                        >
+                          {s.wireframePaths.map((d) => (
+                            <path
+                              key={d}
+                              d={d}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                            />
+                          ))}
+                        </svg>
+                        <p className="mt-0.5 text-center text-[10px] font-semibold">
+                          {s.label}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[10px] leading-snug text-text-soft">
+                  ~{avgRooms} rooms/floor (derived from shape ·{" "}
+                  {shape.label})
+                </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {distribution.map((count, i) => (
+                    <span
+                      key={`L${i + 1}`}
+                      className="rounded bg-panel-muted px-1.5 py-0.5 text-[9px] font-medium text-text-soft"
+                      title={`Storey ${i + 1}`}
+                    >
+                      L{i + 1}:{count}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 

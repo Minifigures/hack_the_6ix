@@ -28,6 +28,13 @@ import {
   structureLog,
   type BuildComponents,
 } from "@/lib/build-config";
+import {
+  defaultShapeId,
+  defaultStoreys,
+  getShape,
+  storeysRange,
+  type ShapeId,
+} from "@/lib/building-shape";
 import { FLAGS } from "@/lib/flags";
 import { ENTERED_KEY } from "@/lib/auth0-shared";
 import {
@@ -70,12 +77,6 @@ const ENGINE_TYPE: Record<UiBuildingType, BuildingType> = {
   bnb: "homestay",
 };
 
-const UI_FLOORS: Record<UiBuildingType, number> = {
-  hotel: 8,
-  homestay: 3,
-  bnb: 3,
-};
-
 type Overlay = "none" | "stress" | "memo" | "profiles" | "runs";
 
 // Next.js App Router requires a default export for page files.
@@ -88,6 +89,8 @@ export default function HomePage() {
   const [placed, setPlaced] = useState(false);
   const [uiType, setUiType] = useState<UiBuildingType>("hotel");
   const [rooms, setRooms] = useState(40);
+  const [storeys, setStoreys] = useState(() => defaultStoreys("hotel"));
+  const [shapeId, setShapeId] = useState<ShapeId>(() => defaultShapeId("hotel"));
   const [option, setOption] = useState<OptionKey>("A");
   const [scenario, setScenario] = useState<StressScenarioKey>(DEFAULT_SCENARIO);
   const [componentsByOption, setComponentsByOption] = useState<
@@ -373,8 +376,12 @@ export default function HomePage() {
       const preset = UI_TYPES.find((t) => t.key === type);
       setUiType(type);
       setRooms(preset?.rooms ?? 40);
+      setStoreys(defaultStoreys(type));
+      setShapeId(defaultShapeId(type));
       invalidate();
-      appendLog(`Type set: ${preset?.label ?? type}, ${preset?.rooms ?? 40} rooms.`);
+      appendLog(
+        `Type set: ${preset?.label ?? type}, ${preset?.rooms ?? 40} rooms, ${defaultStoreys(type)} storeys.`,
+      );
     },
     [appendLog, invalidate],
   );
@@ -385,6 +392,28 @@ export default function HomePage() {
       invalidate();
     },
     [invalidate],
+  );
+
+  const handleStoreysChange = useCallback(
+    (value: number) => {
+      const { min, max } = storeysRange(uiType);
+      const next = Math.min(max, Math.max(min, value));
+      setStoreys(next);
+      invalidate();
+      appendLog(`Storeys set: ${next} (${getShape(shapeId).label}).`);
+    },
+    [appendLog, invalidate, shapeId, uiType],
+  );
+
+  const handleShapeChange = useCallback(
+    (next: ShapeId) => {
+      setShapeId(next);
+      invalidate();
+      appendLog(
+        `Shape set: ${getShape(next).label} (room distribution + massing estimate).`,
+      );
+    },
+    [appendLog, invalidate],
   );
 
   const handleOptionChange = useCallback(
@@ -437,8 +466,16 @@ export default function HomePage() {
           lng: activeSite.lng,
           name: activeSite.name,
         },
+        { storeys, shape: shapeId },
       );
       if (runToken.current !== token) return;
+      if (year.from_cache) {
+        appendLog(
+          `Mongo cache hit: reused prior year pack` +
+            (year.cached_run_id ? ` (${year.cached_run_id.slice(0, 8)}…)` : "") +
+            " — skipped Gemini re-run.",
+        );
+      }
       appendLog("Sim matrix ready.");
       const climateSrc = year.climate?.source ?? "benchmark";
       appendLog(
@@ -472,10 +509,16 @@ export default function HomePage() {
       }
       appendLog(
         `Agents… (${year.generator}): ${Object.keys(year.briefs).length} briefs + year boss.` +
-          (year.fallback_reason ? ` Fallback: ${year.fallback_reason}` : ""),
+          (year.fallback_reason ? ` Fallback: ${year.fallback_reason}` : "") +
+          (year.from_cache ? " [cached]" : ""),
       );
       const ai = year.ai_energy ?? year.memo.environmental_summary?.ai_inference;
-      if (ai && ai.call_count > 0) {
+      if (year.from_cache) {
+        appendLog(
+          year.cache_note ??
+            "Reused prior Mongo run with matching fingerprint; agents not re-invoked.",
+        );
+      } else if (ai && ai.call_count > 0) {
         appendLog(
           `Agent footprint (est.): ${ai.call_count} calls, ${ai.total_tokens.toLocaleString("en-CA")} tokens, ${ai.est_wh.toFixed(3)} Wh, ${ai.est_gco2e.toFixed(3)} gCO2e (${ai.intensity_source} grid).`,
         );
@@ -496,7 +539,7 @@ export default function HomePage() {
             ? ` Fallback: ${year.memo.narrative.fallback_reason}`
             : ""),
       );
-      if (auth0Sub) {
+      if (auth0Sub && !year.from_cache) {
         appendLog("Year pack saved to your account history.");
       }
     } catch {
@@ -515,10 +558,9 @@ export default function HomePage() {
     auth.sub,
     componentsByOption,
     rooms,
+    shapeId,
+    storeys,
     uiType,
-    activeSite.lat,
-    activeSite.lng,
-    activeSite.name,
   ]);
 
   const explainMemo = useCallback(() => {
@@ -540,7 +582,8 @@ export default function HomePage() {
   const building = placed
     ? {
         structure: deriveStructure(activeComponents),
-        floors: UI_FLOORS[uiType],
+        floors: storeys,
+        shapeId,
       }
     : null;
 
@@ -549,7 +592,14 @@ export default function HomePage() {
       ? "Option A: Concrete + Central HVAC"
       : "Option B: Mass Timber + Heat Pumps";
   const logEntries = placed
-    ? structureLog(activeComponents, UI_FLOORS[uiType], optionLabel)
+    ? [
+        ...structureLog(activeComponents, storeys, optionLabel),
+        {
+          kind: "confirm" as const,
+          text: `Massing: ${storeys} storeys · ${getShape(shapeId).label} · ${rooms} rooms (distribution estimate)`,
+          icon: "frame" as const,
+        },
+      ]
     : [];
 
   if (!entered) {
@@ -585,6 +635,8 @@ export default function HomePage() {
           siteName={activeSite.name}
           uiType={uiType}
           rooms={rooms}
+          storeys={storeys}
+          shapeId={shapeId}
           option={option}
           components={activeComponents}
           running={running}
@@ -593,6 +645,8 @@ export default function HomePage() {
           onPlace={handlePlace}
           onTypeChange={handleTypeChange}
           onRoomsChange={handleRoomsChange}
+          onStoreysChange={handleStoreysChange}
+          onShapeChange={handleShapeChange}
           onOptionChange={handleOptionChange}
           onComponentChange={handleComponentChange}
           onRunStressTest={handleRunStressTest}
@@ -625,6 +679,8 @@ export default function HomePage() {
                 siteLat={activeSite.lat}
                 siteLng={activeSite.lng}
                 climate={climateMeta}
+                storeys={storeys}
+                shapeId={shapeId}
                 onFocusScenario={(key) =>
                   setScenario(key as StressScenarioKey)
                 }

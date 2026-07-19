@@ -36,6 +36,8 @@ interface StressViewProps {
   siteLat?: number;
   siteLng?: number;
   climate?: ClimateMeta | null;
+  storeys?: number;
+  shapeId?: string;
 }
 
 export function StressView({
@@ -55,6 +57,8 @@ export function StressView({
   siteLat,
   siteLng,
   climate,
+  storeys,
+  shapeId,
 }: StressViewProps) {
   const yearMode = Boolean(matrixSummary && scenarios);
   const focusKey = focusScenario ?? "heatwave_full";
@@ -140,6 +144,8 @@ export function StressView({
           active={active === "A"}
           recommended={focusComparison.recommended === "A"}
           onSelect={() => onSelect("A")}
+          storeys={storeys}
+          shapeId={shapeId}
         />
         <OptionColumn
           result={focusComparison.option_b}
@@ -147,6 +153,8 @@ export function StressView({
           active={active === "B"}
           recommended={focusComparison.recommended === "B"}
           onSelect={() => onSelect("B")}
+          storeys={storeys}
+          shapeId={shapeId}
         />
       </div>
     </div>
@@ -237,12 +245,16 @@ function OptionColumn({
   active,
   recommended,
   onSelect,
+  storeys,
+  shapeId,
 }: {
   result: OptionResult;
   colour: string;
   active: boolean;
   recommended: boolean;
   onSelect: () => void;
+  storeys?: number;
+  shapeId?: string;
 }) {
   return (
     <button
@@ -276,6 +288,8 @@ function OptionColumn({
           strainClass={result.strain_class}
           rooms={result.config.rooms}
           colour={colour}
+          storeys={storeys}
+          shapeId={shapeId}
         />
       )}
       <div className="w-full">
