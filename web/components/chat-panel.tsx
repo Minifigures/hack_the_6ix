@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useAuth } from "@/lib/use-auth";
 import { sendChatMessage } from "@/lib/api";
 import type { AgentBrief, BossSynthesis, Memo } from "@/lib/types";
 
@@ -46,6 +47,7 @@ export function ChatPanel({
   siteLng,
   dockExtra,
 }: ChatPanelProps) {
+  const auth = useAuth();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,6 +80,8 @@ export function ChatPanel({
         const res = await sendChatMessage({
           message: trimmed,
           history,
+          auth0_sub: auth.sub,
+          stakeholder_role: auth.role,
           memo: memo ?? undefined,
           briefs: briefs ?? undefined,
           synthesis: synthesis ?? undefined,

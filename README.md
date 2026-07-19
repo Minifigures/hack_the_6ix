@@ -76,6 +76,7 @@ Honesty first: this table says exactly what is real and what is a labelled simul
 | Pixel viewport | Visualization driven by real sim outputs, decorative art style |
 | In-app chatbot | Gemini-backed reasoning over the app's own computed context; deterministic fallback without a key, generator labelled |
 | 3D massing | Modular Three.js massing driven by rooms x storeys x plan shape; illustrative, not permit-ready |
+| Stakeholder memory | Backboard.io memory per signed-in user and role, recalled into chat grounding and written back after answers; strictly additive, chat unchanged without a key |
 | Compliance panel | Deterministic rules engine vs a curated Toronto pack (height, angular plane, setbacks, FSI, EMTC, parking); every limit labelled heuristic or estimate, GFA shared with the sim, not legal advice |
 
 ## Licences and data credits

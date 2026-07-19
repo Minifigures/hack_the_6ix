@@ -173,6 +173,8 @@ class ChatRequest(BaseModel):
     briefs: dict[str, Any] | None = None
     synthesis: dict[str, Any] | None = None
     site: ChatSite | None = None
+    auth0_sub: str | None = None
+    stakeholder_role: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -180,6 +182,7 @@ class ChatResponse(BaseModel):
     citations: list[str] = Field(default_factory=list)
     generator: str  # gemini | fallback
     fallback_reason: str | None = None
+    memories_used: int = 0
 
 
 def _tokens(text: str) -> set[str]:
@@ -639,6 +642,23 @@ def answer_chat(req: ChatRequest) -> ChatResponse:
         req.site,
     )
 
+    # Per-stakeholder memory (Backboard): strictly additive grounding.
+    memories: list[str] = []
+    if req.auth0_sub:
+        from app.agents.memory import recall as _bb_recall
+
+        memories = _bb_recall(
+            req.auth0_sub, req.stakeholder_role or "", req.message
+        )
+    if memories:
+        user_prompt = (
+            "Stakeholder memory (this user's prior sessions; use for "
+            "continuity, do not contradict the current computed numbers):\n- "
+            + "\n- ".join(memories)
+            + "\n\n"
+            + user_prompt
+        )
+
     key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     if not key:
         from app.agents.llm import refresh_dotenv
@@ -657,11 +677,18 @@ def answer_chat(req: ChatRequest) -> ChatResponse:
         # Explain-with-memo: prefer deterministic numbers, Gemini can polish via prompt;
         # still call Gemini for richer wording when key exists.
         reply = _gemini_text(_SYSTEM, user_prompt, key)
+        if req.auth0_sub:
+            from app.agents.memory import remember as _bb_remember
+
+            _bb_remember(
+                req.auth0_sub, req.stakeholder_role or "", req.message, reply
+            )
         return ChatResponse(
             reply=reply,
             citations=citations,
             generator="gemini",
             fallback_reason=None,
+            memories_used=len(memories),
         )
     except Exception as exc:
         reason = str(exc)

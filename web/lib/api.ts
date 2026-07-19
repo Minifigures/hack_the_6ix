@@ -229,6 +229,7 @@ export interface ChatReply {
   citations: string[];
   generator: string;
   fallback_reason?: string | null;
+  memories_used?: number;
 }
 
 /** App-scoped chat grounded on handbook + optional live memo. */
@@ -239,6 +240,8 @@ export function sendChatMessage(body: {
   briefs?: Briefing["briefs"] | YearBriefing["briefs"];
   synthesis?: Briefing["synthesis"] | YearBriefing["synthesis"];
   site?: { name?: string; lat?: number; lng?: number };
+  auth0_sub?: string | null;
+  stakeholder_role?: string | null;
 }): Promise<ChatReply> {
   return post<ChatReply>("/chat", body);
 }
