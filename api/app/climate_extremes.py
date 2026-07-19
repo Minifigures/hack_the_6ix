@@ -194,7 +194,9 @@ async def fetch_location_year_scenarios(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=25.0) as client:
+        # 8s hard cap: the curated Toronto pack is a demo-safe fallback, so a
+        # slow archive must never stall the year-stress button.
+        async with httpx.AsyncClient(timeout=8.0) as client:
             res = await client.get(
                 ARCHIVE,
                 params=params,

@@ -327,8 +327,12 @@ async def run_year_briefing(
     storeys: int | None = None,
     shape: str | None = "slab",
     acres: float | None = None,
+    fast: bool = False,
 ) -> YearBriefingResponse:
-    """Run all year scenarios in parallel; one gather; ~8 Gemini calls total."""
+    """Run all year scenarios in parallel; one gather; ~8 Gemini calls total.
+
+    fast=True is the never-hang fallback: deterministic provider, no live
+    gathers, same response shape — finishes in about a second."""
     site_lat = DEFAULT_SITE_LAT if lat is None else lat
     site_lng = DEFAULT_SITE_LNG if lng is None else lng
 
@@ -353,6 +357,7 @@ async def run_year_briefing(
         lng=site_lng,
         climate=climate_meta,
         acres=acres,
+        live=not fast,
     )
     ctx["matrix_summary"] = truncate_matrix_for_llm(matrix_summary)
     ctx["year_pack"] = True
@@ -381,7 +386,14 @@ async def run_year_briefing(
         )
         env["climate_meta"] = climate_meta
 
-    llm, fallback_reason = (provider, None) if provider is not None else get_provider()
+    if fast and provider is None:
+        provider, _ = get_provider(api_key="")
+        fallback_reason = "fast fallback requested by client after slow live run"
+        llm = provider
+    else:
+        llm, fallback_reason = (
+            (provider, None) if provider is not None else get_provider()
+        )
     include = include_agents or ALL_AGENT_IDS
 
     intensity, intensity_source = _grid_from_ctx(ctx)

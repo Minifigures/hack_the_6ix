@@ -424,8 +424,9 @@ async def gather_all(
     lng: float | None = None,
     climate: dict[str, Any] | None = None,
     acres: float | None = None,
+    live: bool = True,
 ) -> dict[str, Any]:
-    market, live_grid = await _gather_async(lat=lat, lng=lng)
+    market, live_grid = await _gather_async(lat=lat, lng=lng, live=live)
     site: dict[str, Any] = {
         "lat": DEFAULT_SITE_LAT if lat is None else lat,
         "lng": DEFAULT_SITE_LNG if lng is None else lng,
@@ -464,14 +465,54 @@ async def gather_all(
     }
 
 
+GATHER_BUDGET_S = 9.0
+
+
 async def _gather_async(
     *,
     lat: float | None = None,
     lng: float | None = None,
+    live: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Live pulls under a hard wall-clock budget so a slow upstream can never
+    hang the year-stress run; each falls back to its benchmark shape."""
     import asyncio
 
-    return await asyncio.gather(
-        fetch_stay22_market(lat=lat, lng=lng),
-        fetch_electricity_maps(lat=lat, lng=lng),
+    site_lat = DEFAULT_SITE_LAT if lat is None else lat
+    site_lng = DEFAULT_SITE_LNG if lng is None else lng
+
+    async def _capped(coro: Any, fallback: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return await asyncio.wait_for(coro, timeout=GATHER_BUDGET_S)
+        except Exception:
+            return fallback
+
+    market_fallback = {
+        "source": "estimate",
+        "checkin": _next_saturday().isoformat(),
+        "baseline_checkin": (_next_saturday() + timedelta(days=28)).isoformat(),
+        "lat": site_lat,
+        "lng": site_lng,
+        "target": {"properties": 0, "priced": 0, "median_rate": None, "min_rate": None},
+        "baseline": {"properties": 0, "priced": 0, "median_rate": None, "min_rate": None},
+        "demand_ratio": None,
+        "note": f"Stay22 exceeded the {GATHER_BUDGET_S:.0f}s gather budget; benchmark memo only.",
+    }
+    grid_fallback = {
+        "source": "benchmark",
+        "zone": "CA-ON",
+        "lat": site_lat,
+        "lng": site_lng,
+        "carbon_intensity": None,
+        "note": f"Electricity Maps exceeded the {GATHER_BUDGET_S:.0f}s gather budget; TAF benchmarks.",
+    }
+    if not live:
+        market_fallback["note"] = "Fast fallback run: live pulls skipped."
+        grid_fallback["note"] = "Fast fallback run: TAF grid benchmarks."
+        return market_fallback, grid_fallback
+
+    market, live_grid = await asyncio.gather(
+        _capped(fetch_stay22_market(lat=lat, lng=lng), market_fallback),
+        _capped(fetch_electricity_maps(lat=lat, lng=lng), grid_fallback),
     )
+    return market, live_grid

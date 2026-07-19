@@ -39,11 +39,16 @@ async function authHeader(): Promise<Record<string, string>> {
   }
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(
+  path: string,
+  body: unknown,
+  timeoutMs?: number,
+): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json", ...(await authHeader()) },
     body: JSON.stringify(body),
+    ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
   });
   if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
   return (await res.json()) as T;
@@ -110,7 +115,7 @@ export function fetchYearBriefing(
   planning?: { storeys?: number; shape?: string },
   forceRefresh?: boolean,
 ): Promise<YearBriefing> {
-  return post<YearBriefing>("/briefing/year", {
+  const body = {
     building_type: buildingType,
     rooms,
     ...overrides,
@@ -126,7 +131,12 @@ export function fetchYearBriefing(
     ...(planning?.storeys != null ? { storeys: planning.storeys } : {}),
     ...(planning?.shape ? { shape: planning.shape } : {}),
     ...(forceRefresh ? { force_refresh: true } : {}),
-  });
+  };
+  // Full run gets 50s (Render cold start + live pulls). If it cannot finish,
+  // rerun in fast mode: deterministic memo, no live gathers, same shape.
+  return post<YearBriefing>("/briefing/year", body, 50_000).catch(() =>
+    post<YearBriefing>("/briefing/year", { ...body, fast: true }, 30_000),
+  );
 }
 
 export function fetchProfiles(): Promise<Record<string, LoadProfileInfo>> {

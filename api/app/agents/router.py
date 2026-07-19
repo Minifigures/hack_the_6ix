@@ -52,6 +52,9 @@ class YearBriefingRequest(BaseModel):
     )
     acres: float | None = Field(default=None, gt=0, le=100)
     force_refresh: bool = False
+    # Client sets fast=True after a slow live run: deterministic, no live
+    # gathers, same shape, ~1s. Never cached so a later full run can win.
+    fast: bool = False
 
 
 def _try_cache(
@@ -243,9 +246,13 @@ async def briefing_year(
             storeys=req.storeys,
             shape=req.shape,
             acres=req.acres,
+            fast=req.fast,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if req.fast:
+        return {**result.model_dump(), "from_cache": False}
 
     from app.storage import record_year_pack_run
 
