@@ -272,12 +272,34 @@ export function buildModularBuilding(
   const roomsPerStorey =
     spec.rooms && spec.floors > 0 ? spec.rooms / spec.floors : null;
 
+  // Structure occupies only the parcel share the room program needs
+  // (about 60 m2 gross per key); the ghost stays the full allowed envelope.
+  const ground = rings.find((r) => r.fromLevel === 0) ?? rings[0];
+  let parcelArea = 0;
+  if (ground) {
+    const gp = ground.points;
+    for (let i = 0; i < gp.length; i++) {
+      const [x1, z1] = [gp[i].x, gp[i].z];
+      const j = (i + 1) % gp.length;
+      const [x2, z2] = [gp[j].x, gp[j].z];
+      parcelArea += x1 * z2 - x2 * z1;
+    }
+    parcelArea = Math.abs(parcelArea) / 2;
+  }
+  const neededArea =
+    roomsPerStorey && roomsPerStorey > 0 ? roomsPerStorey * 60 : null;
+  const fit =
+    neededArea && parcelArea > 50
+      ? Math.min(0.98, Math.max(0.06, Math.sqrt(neededArea / parcelArea)))
+      : 1;
+
   for (const ring of rings) {
     if (ring.points.length < 3) continue;
-    const edges = edgePoints(ring.points);
+    const structPts = fit < 1 ? insetPoints(ring.points, fit) : ring.points;
+    const edges = edgePoints(structPts);
     if (edges.length === 0) continue;
     const ringPerimeter = edges.reduce((sum, e) => sum + e.len, 0);
-    const { cx, cz } = centroidOf(ring.points);
+    const { cx, cz } = centroidOf(structPts);
 
     // Ghost + structure share the same parcel polygon (street-aligned).
     addGhostEnvelope(
@@ -293,11 +315,11 @@ export function buildModularBuilding(
     if (ring.fromLevel === 0) {
       if (c.foundation === "reinforced_concrete") {
         root.add(
-          makePolygonSlab(insetPoints(ring.points, 0.96), 0.55, 0, foundMat),
+          makePolygonSlab(insetPoints(structPts, 0.96), 0.55, 0, foundMat),
         );
       } else {
         const pileGeo = new THREE.CylinderGeometry(0.28, 0.32, 1.4, 8);
-        for (const p of ring.points) {
+        for (const p of structPts) {
           const pile = new THREE.Mesh(pileGeo, foundMat);
           pile.position.set(p.x, 0.7, p.z);
           root.add(pile);
@@ -311,7 +333,7 @@ export function buildModularBuilding(
       }
     }
 
-    const deckPts = insetPoints(ring.points, 0.88);
+    const deckPts = insetPoints(structPts, 0.88);
 
     for (let level = ring.fromLevel; level < ring.toLevel; level++) {
       const y0 = level * METRE_PER_STOREY;
@@ -324,7 +346,7 @@ export function buildModularBuilding(
       const colGeo = new THREE.BoxGeometry(colSize, colH, colSize);
 
       // Columns on vertices + along edges (follows parcel, not NS box).
-      for (const p of ring.points) {
+      for (const p of structPts) {
         const col = new THREE.Mesh(colGeo, structMat);
         col.position.set(p.x, colY, p.z);
         root.add(col);
