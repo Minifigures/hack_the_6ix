@@ -39,7 +39,6 @@ import { FLAGS } from "@/lib/flags";
 import { ENTERED_KEY } from "@/lib/auth0-shared";
 import {
   fetchEmptySites,
-  generateFallbackSites,
   polygonAreaAcres,
   type CandidateSite,
 } from "@/lib/candidate-sites";
@@ -123,10 +122,9 @@ export default function HomePage() {
   const [activeSite, setActiveSite] = useState<ActiveSite>(() =>
     defaultActiveSite(),
   );
-  const [candidates, setCandidates] = useState<CandidateSite[]>(() => {
-    const site = defaultActiveSite();
-    return generateFallbackSites(site.lng, site.lat);
-  });
+  // No hard-coded boot pads: candidates stay empty until the parcel API
+  // answers (live OSM -> session cache -> curated -> labelled approx pads).
+  const [candidates, setCandidates] = useState<CandidateSite[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
   );
