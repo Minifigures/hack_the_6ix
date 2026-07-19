@@ -27,6 +27,7 @@ class BriefingRequest(BaseModel):
         default="slab",
         pattern="^(slab|l_wing|courtyard|podium_tower)$",
     )
+    force_refresh: bool = False
 
 
 class YearBriefingRequest(BaseModel):
@@ -46,6 +47,52 @@ class YearBriefingRequest(BaseModel):
         default="slab",
         pattern="^(slab|l_wing|courtyard|podium_tower)$",
     )
+    force_refresh: bool = False
+
+
+def _try_cache(
+    *,
+    kind: str,
+    building_type: str,
+    rooms: int,
+    structure_a: str,
+    hvac_a: str,
+    structure_b: str,
+    hvac_b: str,
+    lat: float | None,
+    lng: float | None,
+    storeys: int | None,
+    shape: str | None,
+    auth0_sub: str | None,
+    scenario: str | None = None,
+    force_refresh: bool = False,
+) -> dict | None:
+    if force_refresh:
+        return None
+    from app.storage import (
+        cached_payload_from_doc,
+        find_cached_run,
+        run_fingerprint,
+    )
+
+    fp = run_fingerprint(
+        kind=kind,
+        building_type=building_type,
+        rooms=rooms,
+        structure_a=structure_a,
+        hvac_a=hvac_a,
+        structure_b=structure_b,
+        hvac_b=hvac_b,
+        lat=lat,
+        lng=lng,
+        scenario=scenario,
+        storeys=storeys,
+        shape=shape,
+    )
+    doc = find_cached_run(fp, auth0_sub=auth0_sub)
+    if doc is None:
+        return None
+    return cached_payload_from_doc(doc)
 
 
 @router.post("/briefing")
@@ -57,6 +104,26 @@ async def briefing(req: BriefingRequest) -> dict:
                 status_code=422,
                 detail=f"unknown agents: {unknown}; known={ALL_AGENT_IDS}",
             )
+
+    cached = _try_cache(
+        kind="briefing",
+        building_type=req.building_type,
+        rooms=req.rooms,
+        structure_a=req.structure_a,
+        hvac_a=req.hvac_a,
+        structure_b=req.structure_b,
+        hvac_b=req.hvac_b,
+        lat=req.lat,
+        lng=req.lng,
+        storeys=req.storeys,
+        shape=req.shape,
+        auth0_sub=req.auth0_sub,
+        scenario=req.scenario,
+        force_refresh=req.force_refresh,
+    )
+    if cached is not None:
+        return cached
+
     try:
         result = await run_briefing(
             building_type=req.building_type,
@@ -85,6 +152,17 @@ async def briefing(req: BriefingRequest) -> dict:
         fallback_reason=result.fallback_reason,
         briefs=briefs_dump,
         auth0_sub=req.auth0_sub,
+        lat=req.lat,
+        lng=req.lng,
+        storeys=req.storeys,
+        shape=req.shape,
+        scenario=req.scenario,
+        structure_a=req.structure_a,
+        hvac_a=req.hvac_a,
+        structure_b=req.structure_b,
+        hvac_b=req.hvac_b,
+        building_type=req.building_type,
+        rooms=req.rooms,
         report={
             "kind": "briefing",
             "comparison": payload["comparison"],
@@ -95,7 +173,7 @@ async def briefing(req: BriefingRequest) -> dict:
             "ai_energy": payload.get("ai_energy"),
         },
     )
-    return payload
+    return {**payload, "from_cache": False}
 
 
 @router.post("/briefing/year")
@@ -107,6 +185,26 @@ async def briefing_year(req: YearBriefingRequest) -> dict:
                 status_code=422,
                 detail=f"unknown agents: {unknown}; known={ALL_AGENT_IDS}",
             )
+
+    cached = _try_cache(
+        kind="year_pack",
+        building_type=req.building_type,
+        rooms=req.rooms,
+        structure_a=req.structure_a,
+        hvac_a=req.hvac_a,
+        structure_b=req.structure_b,
+        hvac_b=req.hvac_b,
+        lat=req.lat,
+        lng=req.lng,
+        storeys=req.storeys,
+        shape=req.shape,
+        auth0_sub=req.auth0_sub,
+        scenario=None,
+        force_refresh=req.force_refresh,
+    )
+    if cached is not None:
+        return cached
+
     try:
         result = await run_year_briefing(
             building_type=req.building_type,
@@ -140,6 +238,12 @@ async def briefing_year(req: YearBriefingRequest) -> dict:
         hvac_a=req.hvac_a,
         structure_b=req.structure_b,
         hvac_b=req.hvac_b,
+        lat=req.lat,
+        lng=req.lng,
+        storeys=req.storeys,
+        shape=req.shape,
+        building_type=req.building_type,
+        rooms=req.rooms,
         report={
             "kind": "year_pack",
             "scenarios": payload["scenarios"],
@@ -154,4 +258,4 @@ async def briefing_year(req: YearBriefingRequest) -> dict:
             "ai_energy": payload.get("ai_energy"),
         },
     )
-    return payload
+    return {**payload, "from_cache": False}

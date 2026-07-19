@@ -208,6 +208,10 @@ export interface Briefing {
   generator: string;
   fallback_reason?: string | null;
   ai_energy?: AiEnergyFootprint | null;
+  from_cache?: boolean;
+  cached_run_id?: string;
+  cache_note?: string;
+  fingerprint?: string;
 }
 
 export interface MatrixSummary {
@@ -277,4 +281,8 @@ export interface YearBriefing {
   comparison: Comparison;
   climate?: ClimateMeta | null;
   ai_energy?: AiEnergyFootprint | null;
+  from_cache?: boolean;
+  cached_run_id?: string;
+  cache_note?: string;
+  fingerprint?: string;
 }

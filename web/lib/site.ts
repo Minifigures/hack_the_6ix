@@ -24,12 +24,13 @@ export const SITE_POLYGON: GeoJSON.Feature<GeoJSON.Polygon> = {
   properties: { id: "default", label: SITE.name },
   geometry: {
     type: "Polygon",
+    // Counter-clockwise exterior (MapLibre fill-extrusion / RFC 7944).
     coordinates: [
       [
         [-79.373902, 43.647438],
-        [-79.373419, 43.647523],
-        [-79.373322, 43.647275],
         [-79.373805, 43.64719],
+        [-79.373322, 43.647275],
+        [-79.373419, 43.647523],
         [-79.373902, 43.647438],
       ],
     ],

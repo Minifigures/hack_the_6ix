@@ -469,6 +469,13 @@ export default function HomePage() {
         { storeys, shape: shapeId },
       );
       if (runToken.current !== token) return;
+      if (year.from_cache) {
+        appendLog(
+          `Mongo cache hit: reused prior year pack` +
+            (year.cached_run_id ? ` (${year.cached_run_id.slice(0, 8)}…)` : "") +
+            " — skipped Gemini re-run.",
+        );
+      }
       appendLog("Sim matrix ready.");
       const climateSrc = year.climate?.source ?? "benchmark";
       appendLog(
@@ -502,10 +509,16 @@ export default function HomePage() {
       }
       appendLog(
         `Agents… (${year.generator}): ${Object.keys(year.briefs).length} briefs + year boss.` +
-          (year.fallback_reason ? ` Fallback: ${year.fallback_reason}` : ""),
+          (year.fallback_reason ? ` Fallback: ${year.fallback_reason}` : "") +
+          (year.from_cache ? " [cached]" : ""),
       );
       const ai = year.ai_energy ?? year.memo.environmental_summary?.ai_inference;
-      if (ai && ai.call_count > 0) {
+      if (year.from_cache) {
+        appendLog(
+          year.cache_note ??
+            "Reused prior Mongo run with matching fingerprint; agents not re-invoked.",
+        );
+      } else if (ai && ai.call_count > 0) {
         appendLog(
           `Agent footprint (est.): ${ai.call_count} calls, ${ai.total_tokens.toLocaleString("en-CA")} tokens, ${ai.est_wh.toFixed(3)} Wh, ${ai.est_gco2e.toFixed(3)} gCO2e (${ai.intensity_source} grid).`,
         );
@@ -526,7 +539,7 @@ export default function HomePage() {
             ? ` Fallback: ${year.memo.narrative.fallback_reason}`
             : ""),
       );
-      if (auth0Sub) {
+      if (auth0Sub && !year.from_cache) {
         appendLog("Year pack saved to your account history.");
       }
     } catch {

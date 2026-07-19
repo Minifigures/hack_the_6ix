@@ -86,7 +86,7 @@ export const BUILDING_SHAPES: Record<ShapeId, BuildingShape> = {
     distribute: evenDistribute,
     massing(storeys) {
       const n = clampStoreys(storeys);
-      return [{ inset: 0.72, fromLevel: 0, toLevel: n }];
+      return [{ inset: 0.92, fromLevel: 0, toLevel: n }];
     },
   },
   l_wing: {
@@ -103,11 +103,11 @@ export const BUILDING_SHAPES: Record<ShapeId, BuildingShape> = {
     },
     massing(storeys) {
       const n = clampStoreys(storeys);
-      if (n <= 2) return [{ inset: 0.72, fromLevel: 0, toLevel: n }];
+      if (n <= 2) return [{ inset: 0.92, fromLevel: 0, toLevel: n }];
       const split = Math.max(1, Math.ceil(n * 0.55));
       return [
-        { inset: 0.78, fromLevel: 0, toLevel: split },
-        { inset: 0.58, fromLevel: split, toLevel: n },
+        { inset: 0.94, fromLevel: 0, toLevel: split },
+        { inset: 0.62, fromLevel: split, toLevel: n },
       ];
     },
   },
@@ -122,7 +122,7 @@ export const BUILDING_SHAPES: Record<ShapeId, BuildingShape> = {
     },
     massing(storeys) {
       const n = clampStoreys(storeys);
-      return [{ inset: 0.8, fromLevel: 0, toLevel: n }];
+      return [{ inset: 0.92, fromLevel: 0, toLevel: n }];
     },
   },
   podium_tower: {
@@ -139,11 +139,11 @@ export const BUILDING_SHAPES: Record<ShapeId, BuildingShape> = {
     },
     massing(storeys) {
       const n = clampStoreys(storeys);
-      if (n <= 2) return [{ inset: 0.72, fromLevel: 0, toLevel: n }];
+      if (n <= 2) return [{ inset: 0.92, fromLevel: 0, toLevel: n }];
       const podium = Math.max(1, Math.ceil(n * 0.4));
       return [
-        { inset: 0.82, fromLevel: 0, toLevel: podium },
-        { inset: 0.48, fromLevel: podium, toLevel: n },
+        { inset: 0.94, fromLevel: 0, toLevel: podium },
+        { inset: 0.55, fromLevel: podium, toLevel: n },
       ];
     },
   },

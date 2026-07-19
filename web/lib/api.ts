@@ -86,6 +86,7 @@ export function fetchYearBriefing(
   auth0Sub?: string,
   site?: { lat: number; lng: number; name?: string },
   planning?: { storeys?: number; shape?: string },
+  forceRefresh?: boolean,
 ): Promise<YearBriefing> {
   return post<YearBriefing>("/briefing/year", {
     building_type: buildingType,
@@ -101,6 +102,7 @@ export function fetchYearBriefing(
       : {}),
     ...(planning?.storeys != null ? { storeys: planning.storeys } : {}),
     ...(planning?.shape ? { shape: planning.shape } : {}),
+    ...(forceRefresh ? { force_refresh: true } : {}),
   });
 }
 
