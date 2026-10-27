@@ -12,3 +12,4 @@ shapely
 pyjwt
 cryptography
 slowapi
+certifi>=2026.10.23
